@@ -12,8 +12,7 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    employee_id: '',
-    name: '', designation: '', site_location: '', phone_number: '',
+    employee_id: '', name: '', designation: '', site_location: '', phone_number: '',
     reference_number: '', nid_number: '', blood_group: '',
     dob: '', joining_date: '', present_address: '',
     permanent_address: '', supervisor_name: '', email: ''
@@ -26,7 +25,7 @@ function App() {
     const { data, error } = await supabase.from('employees').select('*')
     if (error) { setStatus('Error: ' + error.message) } 
     else { 
-      const sortedData = data ? [...data].reverse() : []
+      const sortedData = data ? [...data].sort((a, b) => b.id - a.id) : []
       setEmployees(sortedData)
       setStatus('Online') 
     }
@@ -74,39 +73,6 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // --- PRINT ID CARD LOGIC ---
-  const printID = (emp) => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>ID Card - ${emp.name}</title>
-          <style>
-            body { font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
-            .card { width: 325px; height: 200px; border: 2px solid #003366; border-radius: 10px; padding: 15px; position: relative; background: #fff; }
-            .header { color: #003366; font-weight: bold; font-size: 18px; border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 10px; }
-            .id-tag { position: absolute; top: 15px; right: 15px; background: #003366; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-            .info { font-size: 14px; margin: 5px 0; }
-            .footer { margin-top: 15px; font-size: 10px; color: #666; font-style: italic; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="header">Composite Steel Structure Ltd.</div>
-            <div class="id-tag">${emp.employee_id}</div>
-            <div class="info"><strong>Name:</strong> ${emp.name}</div>
-            <div class="info"><strong>Post:</strong> ${emp.designation}</div>
-            <div class="info"><strong>Blood:</strong> ${emp.blood_group || 'N/A'}</div>
-            <div class="info"><strong>Site:</strong> ${emp.site_location || 'N/A'}</div>
-            <div class="footer">Propery of CSSL. If found, please return to Dhaka Office.</div>
-          </div>
-          <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
   async function handleDelete(id, name) {
     if (!window.confirm(`Delete ${name}?`)) return;
     const { error } = await supabase.from('employees').delete().eq('id', id);
@@ -115,7 +81,12 @@ function App() {
 
   const filteredEmployees = employees.filter(emp => {
     const term = searchTerm.toLowerCase();
-    return (emp.name?.toLowerCase().includes(term) || emp.employee_id?.toLowerCase().includes(term) || emp.site_location?.toLowerCase().includes(term));
+    return (
+      emp.name?.toLowerCase().includes(term) || 
+      emp.employee_id?.toLowerCase().includes(term) ||
+      emp.site_location?.toLowerCase().includes(term) ||
+      emp.nid_number?.includes(term)
+    );
   });
 
   if (!isAdmin) {
@@ -131,51 +102,78 @@ function App() {
   }
 
   return (
-    <div style={{ padding: '10px', maxWidth: '800px', margin: 'auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ color: '#003366' }}>CSSL ERP Portal</h2>
-        <button onClick={() => setIsAdmin(false)} style={{ padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Logout</button>
+    <div style={{ padding: '10px', maxWidth: '1200px', margin: 'auto', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <h2 style={{ color: '#003366', margin: 0 }}>CSSL ERP Portal</h2>
+        <button onClick={() => setIsAdmin(false)} style={{ padding: '5px 12px', cursor: 'pointer', borderRadius: '4px' }}>Logout</button>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', margin: '15px 0', border: '1px solid #ddd' }}>
-        <h3 style={{ marginTop: '0' }}>{editingId ? `📝 Editing ${formData.employee_id}` : '👤 New Registration'}</h3>
-        {!editingId && <div style={{ marginBottom: '10px', color: '#003366', fontWeight: 'bold' }}>Next Employee ID: {generateID()}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      {/* REGISTRATION FORM */}
+      <form onSubmit={handleSubmit} style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd' }}>
+        <h3 style={{ marginTop: '0' }}>{editingId ? `Edit ${formData.employee_id}` : 'New Registration'}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
           <input name="name" style={inputStyle} placeholder="Full Name" value={formData.name} onChange={handleInputChange} required />
           <input name="designation" style={inputStyle} placeholder="Designation" value={formData.designation} onChange={handleInputChange} required />
           <input name="phone_number" style={inputStyle} placeholder="Phone" value={formData.phone_number} onChange={handleInputChange} />
+          <input name="site_location" style={inputStyle} placeholder="Project Site" value={formData.site_location} onChange={handleInputChange} />
           <input name="nid_number" style={inputStyle} placeholder="NID" value={formData.nid_number} onChange={handleInputChange} />
-          <input name="blood_group" style={inputStyle} placeholder="Blood" value={formData.blood_group} onChange={handleInputChange} />
-          <input name="site_location" style={inputStyle} placeholder="Site" value={formData.site_location} onChange={handleInputChange} />
+          <input name="blood_group" style={inputStyle} placeholder="Blood Group" value={formData.blood_group} onChange={handleInputChange} />
+          <input name="joining_date" type="date" style={inputStyle} value={formData.joining_date} onChange={handleInputChange} />
         </div>
-        <button type="submit" disabled={loading} style={buttonStyle}>{loading ? 'Saving...' : 'Save Record'}</button>
+        <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '10px'}}>{loading ? 'Saving...' : 'Save Record'}</button>
+        {editingId && <button onClick={resetForm} type="button" style={{...buttonStyle, backgroundColor: '#666', marginTop: '5px'}}>Cancel</button>}
       </form>
 
-      <input style={{...inputStyle, borderColor: '#003366', height: '40px'}} placeholder="🔍 Search CSSL-ID or Name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-
-      <div style={{ marginTop: '20px' }}>
-        {filteredEmployees.map(emp => (
-          <div key={emp.id} style={{ border: '1px solid #ddd', padding: '12px', borderRadius: '8px', marginBottom: '10px', backgroundColor: '#fff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ backgroundColor: '#003366', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>{emp.employee_id}</span><br/>
-                <strong>{emp.name}</strong><br/>
-                <small>{emp.designation} | {emp.site_location}</small>
-              </div>
-              <div style={{ display: 'flex', gap: '5px' }}>
-                <button onClick={() => printID(emp)} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer' }}>Print</button>
-                <button onClick={() => startEdit(emp)} style={{ backgroundColor: '#ffc107', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                <button onClick={() => handleDelete(emp.id, emp.name)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer' }}>Del</button>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* SEARCH AND TABLE */}
+      <div style={{ background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <input style={{...inputStyle, borderColor: '#003366', marginBottom: '15px'}} placeholder="🔍 Search by Name, ID, Site, or NID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '800px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#003366', color: 'white', textAlign: 'left' }}>
+                <th style={thStyle}>ID</th>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Post</th>
+                <th style={thStyle}>Site</th>
+                <th style={thStyle}>Phone</th>
+                <th style={thStyle}>NID</th>
+                <th style={thStyle}>Blood</th>
+                <th style={thStyle}>Joined</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEmployees.map(emp => (
+                <tr key={emp.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={tdStyle}><strong>{emp.employee_id}</strong></td>
+                  <td style={tdStyle}>{emp.name}</td>
+                  <td style={tdStyle}>{emp.designation}</td>
+                  <td style={tdStyle}>{emp.site_location}</td>
+                  <td style={tdStyle}><a href={`tel:${emp.phone_number}`} style={{textDecoration: 'none', color: '#003366'}}>{emp.phone_number}</a></td>
+                  <td style={tdStyle}>{emp.nid_number}</td>
+                  <td style={tdStyle}>{emp.blood_group}</td>
+                  <td style={tdStyle}>{emp.joining_date}</td>
+                  <td style={tdStyle}>
+                    <button onClick={() => startEdit(emp)} style={actionBtnStyle('#ffc107')}>Edit</button>
+                    <button onClick={() => handleDelete(emp.id, emp.name)} style={actionBtnStyle('#dc3545', 'white')}>Del</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredEmployees.length === 0 && <p style={{textAlign: 'center', padding: '20px'}}>No records found.</p>}
+        </div>
       </div>
     </div>
   )
 }
 
-const inputStyle = { width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
+// STYLES
+const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
 const buttonStyle = { width: '100%', padding: '12px', backgroundColor: '#003366', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
+const thStyle = { padding: '12px 8px', borderBottom: '2px solid #ddd' }
+const tdStyle = { padding: '10px 8px' }
+const actionBtnStyle = (bg, color = 'black') => ({ backgroundColor: bg, color: color, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px' })
 
 export default App

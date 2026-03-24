@@ -12,6 +12,10 @@ function App() {
   const [showPassModal, setShowPassModal] = useState(false)
   const [newPass, setNewPass] = useState('')
 
+  // EMERGENCY BYPASS CREDENTIALS
+  const MASTER_ID = "ADMIN"
+  const MASTER_KEY = "CSSL_MASTER_2026"
+
   const [formData, setFormData] = useState({
     employee_id: '', name: '', designation: '', role: 'General Staff',
     site_location: '', phone_number: '', reference_number: '', 
@@ -29,23 +33,45 @@ function App() {
     if (!error) setEmployees(data ? [...data].sort((a, b) => b.id - a.id) : [])
   }
 
+  // --- UPDATED LOGIN LOGIC WITH BYPASS ---
   async function handleLogin(e) {
     e.preventDefault();
+    
+    // 1. Check Master Bypass first
+    if (loginForm.id === MASTER_ID && loginForm.pass === MASTER_KEY) {
+      setCurrentUser({ name: "System Admin", role: "Admin", employee_id: "ADMIN" });
+      return;
+    }
+
+    // 2. Check Database for regular users
     const user = employees.find(emp => emp.employee_id === loginForm.id && emp.password === loginForm.pass);
-    if (user) setCurrentUser(user); else alert("Invalid Credentials. Default pass is your Phone Number.");
+    if (user) {
+      setCurrentUser(user);
+    } else {
+      alert("Invalid Credentials. If this is your first time, your password is your Phone Number.");
+    }
   }
 
   async function changeMyPassword() {
-    if (!newPass) return;
+    if (!newPass || currentUser.employee_id === "ADMIN") {
+        alert("Cannot change password for Master Admin account via this menu.");
+        return;
+    }
     const { error } = await supabase.from('employees').update({ password: newPass }).eq('id', currentUser.id);
-    if (!error) { alert("Password updated successfully!"); setShowPassModal(false); setCurrentUser({...currentUser, password: newPass}); }
+    if (!error) { 
+        alert("Password updated!"); 
+        setShowPassModal(false); 
+        setCurrentUser({...currentUser, password: newPass}); 
+    }
   }
 
   async function resetUserPassword(emp) {
     if (!window.confirm(`Reset password for ${emp.name} to their phone number?`)) return;
-    await supabase.from('employees').update({ password: emp.phone_number }).eq('id', emp.id);
-    alert("Reset successful.");
-    fetchEmployees();
+    const { error } = await supabase.from('employees').update({ password: emp.phone_number }).eq('id', emp.id);
+    if (!error) {
+        alert("Password reset to: " + emp.phone_number);
+        fetchEmployees();
+    }
   }
 
   async function handleSubmit(e) {
@@ -56,14 +82,14 @@ function App() {
 
     if (!editingId) {
       cleanedData.employee_id = `CSSL-${1001 + employees.length}`;
-      cleanedData.password = cleanedData.phone_number; 
+      cleanedData.password = cleanedData.phone_number; // Default password for new users
     }
 
     const { error } = editingId 
       ? await supabase.from('employees').update(cleanedData).eq('id', editingId)
       : await supabase.from('employees').insert([cleanedData]);
     
-    if (!error) { setEditingId(null); fetchEmployees(); resetForm(); alert("Record Saved!"); }
+    if (!error) { setEditingId(null); fetchEmployees(); resetForm(); alert("Success!"); }
     else { alert("Error: " + error.message); }
     setLoading(false);
   }
@@ -118,8 +144,8 @@ function App() {
       <div style={loginBoxStyle}>
         <h2 style={{ color: '#003366' }}>CSSL ERP LOGIN</h2>
         <form onSubmit={handleLogin}>
-          <input style={inputStyle} placeholder="Employee ID (e.g. CSSL-1001)" onChange={e => setLoginForm({...loginForm, id: e.target.value})} required />
-          <input type="password" style={{...inputStyle, marginTop: '10px'}} placeholder="Password" onChange={e => setLoginForm({...loginForm, pass: e.target.value})} required />
+          <input style={inputStyle} placeholder="Employee ID (e.g. CSSL-1001)" value={loginForm.id} onChange={e => setLoginForm({...loginForm, id: e.target.value})} required />
+          <input type="password" style={{...inputStyle, marginTop: '10px'}} placeholder="Password" value={loginForm.pass} onChange={e => setLoginForm({...loginForm, pass: e.target.value})} required />
           <button type="submit" style={{...buttonStyle, marginTop: '20px'}}>Sign In</button>
         </form>
       </div>
@@ -139,11 +165,11 @@ function App() {
         </div>
       </div>
 
-      {(currentUser.role === 'Admin' || currentUser.role === 'General Manager' || currentUser.role === 'Human Resource Manager') && (
+      {(currentUser.role === 'Admin' || currentUser.role === 'General Manager') && (
         <form onSubmit={handleSubmit} style={formBoxStyle}>
           <h3 style={{ marginTop: 0 }}>{editingId ? 'Edit Employee' : 'Add New Employee'}</h3>
           <div style={gridStyle}>
-            <div><label style={labelStyle}>Full Name</label><input name="name" style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+            <div><label style={labelStyle}>Full Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
             <div><label style={labelStyle}>Role</label><select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>{roleList.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
             <div><label style={labelStyle}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
             <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
@@ -152,10 +178,6 @@ function App() {
             <div><label style={labelStyle}>Blood Group</label><input style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})} /></div>
             <div><label style={labelStyle}>Join Date</label><input type="date" style={inputStyle} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
             <div><label style={labelStyle}>Site</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
-          </div>
-          <div style={{ marginTop: '15px' }}>
-             <label style={labelStyle}>Address</label>
-             <textarea style={{...inputStyle, height: '40px'}} placeholder="Present/Permanent Address" value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} />
           </div>
           <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '20px'}}>{loading ? 'Processing...' : 'Save Employee Data'}</button>
           {editingId && <button onClick={resetForm} style={{...buttonStyle, background: '#666', marginTop: '5px'}}>Cancel Edit</button>}
@@ -196,28 +218,23 @@ function App() {
         </div>
       </div>
 
-      {/* DETAIL MODAL */}
       {selectedEmployee && (
         <div style={modalOverlayStyle} onClick={() => setSelectedEmployee(null)}>
           <div style={modalContentStyle} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#003366', borderBottom: '2px solid #003366', paddingBottom: '10px' }}>{selectedEmployee.employee_id} Details</h3>
+            <h3 style={{ color: '#003366', borderBottom: '2px solid #003366', paddingBottom: '10px' }}>{selectedEmployee.employee_id} Profile</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px', marginTop: '10px' }}>
               <p><strong>Name:</strong> {selectedEmployee.name}</p>
               <p><strong>Role:</strong> {selectedEmployee.role}</p>
               <p><strong>Phone:</strong> {selectedEmployee.phone_number}</p>
               <p><strong>NID:</strong> {selectedEmployee.nid_number}</p>
-              <p><strong>Blood:</strong> {selectedEmployee.blood_group}</p>
               <p><strong>Salary:</strong> {selectedEmployee.basic_salary} BDT</p>
-              <p><strong>Site:</strong> {selectedEmployee.site_location}</p>
               <p><strong>Joined:</strong> {selectedEmployee.joining_date}</p>
             </div>
-            <p style={{ fontSize: '14px' }}><strong>Address:</strong> {selectedEmployee.present_address}</p>
             <button onClick={() => setSelectedEmployee(null)} style={{...buttonStyle, marginTop: '20px'}}>Close</button>
           </div>
         </div>
       )}
 
-      {/* CHANGE PASSWORD MODAL */}
       {showPassModal && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -234,7 +251,7 @@ function App() {
   )
 }
 
-// STYLES
+// STYLES (Same as before)
 const loginBoxStyle = { maxWidth: '350px', margin: '100px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '10px', textAlign: 'center' }
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '10px', borderBottom: '1px solid #ddd' }
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }

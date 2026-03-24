@@ -7,7 +7,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
-  const [selectedEmployee, setSelectedEmployee] = useState(null); // CRITICAL: This must be here
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const ADMIN_PASSWORD = "CSSL_ADMIN_2026"
 
   const [editingId, setEditingId] = useState(null);
@@ -62,14 +62,57 @@ function App() {
     setEditingId(null);
   };
 
+  // --- EXPORT TO EXCEL (CSV) LOGIC ---
+  const exportToCSV = () => {
+    const headers = ["ID,Name,Role,Designation,Site,Phone,NID,Salary,Joined\n"];
+    const rows = filteredEmployees.map(e => 
+      `${e.employee_id},${e.name},${e.role},${e.designation},${e.site_location},${e.phone_number},${e.nid_number},${e.basic_salary},${e.joining_date}`
+    ).join("\n");
+    
+    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `CSSL_Staff_List_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // --- PRINT ID CARD LOGIC ---
+  const printID = (emp) => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head><title>ID Card - ${emp.name}</title>
+          <style>
+            body { font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
+            .card { width: 325px; height: 200px; border: 2px solid #003366; border-radius: 10px; padding: 15px; position: relative; background: #fff; }
+            .header { color: #003366; font-weight: bold; font-size: 16px; border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 10px; }
+            .id-tag { position: absolute; top: 15px; right: 15px; background: #003366; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+            .info { font-size: 13px; margin: 4px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header">Composite Steel Structure Ltd.</div>
+            <div class="id-tag">${emp.employee_id}</div>
+            <div class="info"><strong>Name:</strong> ${emp.name}</div>
+            <div class="info"><strong>Post:</strong> ${emp.designation}</div>
+            <div class="info"><strong>Blood:</strong> ${emp.blood_group || 'N/A'}</div>
+            <div class="info"><strong>Site:</strong> ${emp.site_location || 'N/A'}</div>
+          </div>
+          <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const filteredEmployees = employees.filter(emp => {
     const term = searchTerm.toLowerCase();
-    return (
-      emp.name?.toLowerCase().includes(term) || 
-      emp.employee_id?.toLowerCase().includes(term) || 
-      emp.role?.toLowerCase().includes(term) ||
-      emp.site_location?.toLowerCase().includes(term)
-    );
+    return (emp.name?.toLowerCase().includes(term) || emp.employee_id?.toLowerCase().includes(term) || emp.role?.toLowerCase().includes(term));
   });
 
   if (!isAdmin) {
@@ -103,14 +146,16 @@ function App() {
           <div><label style={labelStyle}>Site</label><input name="site_location" style={inputStyle} value={formData.site_location} onChange={handleInputChange} /></div>
           <div><label style={labelStyle}>Joining Date</label><input name="joining_date" type="date" style={inputStyle} value={formData.joining_date} onChange={handleInputChange} /></div>
         </div>
-        <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '15px'}}>{loading ? 'Saving...' : 'Save to Database'}</button>
+        <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '15px'}}>{loading ? 'Processing...' : 'Save Record'}</button>
       </form>
 
-      {/* SEARCH AND TABLE */}
+      {/* TABLE TOOLS */}
       <div style={tableContainerStyle}>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-          <input style={{...inputStyle, flex: 1}} placeholder="🔍 Search ID, Name, or Role..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          <div style={countBadgeStyle}>Total: {filteredEmployees.length}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
+          <input style={{...inputStyle, flex: 2}} placeholder="🔍 Search Staff..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <button onClick={() => setSearchTerm('')} style={utilBtnStyle('#6c757d', 'white')}>Clear</button>
+          <button onClick={exportToCSV} style={utilBtnStyle('#28a745', 'white')}>Excel Download</button>
+          <div style={countBadgeStyle}>Found: {filteredEmployees.length}</div>
         </div>
         
         <div style={{ overflowX: 'auto' }}>
@@ -133,6 +178,7 @@ function App() {
                   <td style={tdStyle}>{emp.site_location}</td>
                   <td style={tdStyle}>
                     <button onClick={() => setSelectedEmployee(emp)} style={actionBtnStyle('#17a2b8', 'white')}>Details</button>
+                    <button onClick={() => printID(emp)} style={actionBtnStyle('#28a745', 'white')}>Print</button>
                     <button onClick={() => { setEditingId(emp.id); setFormData(emp); window.scrollTo(0,0); }} style={actionBtnStyle('#ffc107')}>Edit</button>
                   </td>
                 </tr>
@@ -142,29 +188,18 @@ function App() {
         </div>
       </div>
 
-      {/* POPUP MODAL (The missing part) */}
+      {/* PROFILE POPUP */}
       {selectedEmployee && (
         <div style={modalOverlayStyle} onClick={() => setSelectedEmployee(null)}>
           <div style={modalContentStyle} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #003366', paddingBottom: '10px' }}>
-              <h3 style={{ margin: 0, color: '#003366' }}>{selectedEmployee.employee_id} - Profile</h3>
-              <button onClick={() => setSelectedEmployee(null)} style={{ cursor: 'pointer', border: 'none', background: 'none', fontSize: '24px' }}>&times;</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px', fontSize: '14px' }}>
+            <h3 style={{ color: '#003366', borderBottom: '2px solid #003366' }}>{selectedEmployee.employee_id} Profile</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', marginTop: '10px' }}>
               <p><strong>Name:</strong> {selectedEmployee.name}</p>
               <p><strong>Role:</strong> {selectedEmployee.role}</p>
-              <p><strong>Designation:</strong> {selectedEmployee.designation}</p>
               <p><strong>Salary:</strong> {selectedEmployee.basic_salary} BDT</p>
               <p><strong>Phone:</strong> {selectedEmployee.phone_number}</p>
               <p><strong>NID:</strong> {selectedEmployee.nid_number}</p>
-              <p><strong>Joining Date:</strong> {selectedEmployee.joining_date}</p>
               <p><strong>Site:</strong> {selectedEmployee.site_location}</p>
-              <p><strong>Supervisor:</strong> {selectedEmployee.supervisor_name}</p>
-              <p><strong>Email:</strong> {selectedEmployee.email}</p>
-            </div>
-            <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-              <p><strong>Present Address:</strong> {selectedEmployee.present_address}</p>
-              <p><strong>Permanent Address:</strong> {selectedEmployee.permanent_address}</p>
             </div>
             <button onClick={() => setSelectedEmployee(null)} style={{...buttonStyle, marginTop: '20px'}}>Close</button>
           </div>
@@ -178,16 +213,16 @@ function App() {
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }
 const formBoxStyle = { background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd' }
 const tableContainerStyle = { background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }
-const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
+const inputStyle = { padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }
 const labelStyle = { display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#666', marginBottom: '4px' }
 const buttonStyle = { width: '100%', padding: '12px', backgroundColor: '#003366', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
 const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }
 const thStyle = { padding: '12px 8px' }
 const tdStyle = { padding: '10px 8px' }
+const utilBtnStyle = (bg, color) => ({ backgroundColor: bg, color, border: 'none', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' })
+const actionBtnStyle = (bg, color = 'black') => ({ backgroundColor: bg, color, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '11px' })
 const countBadgeStyle = { background: '#003366', color: 'white', padding: '10px', borderRadius: '4px', fontWeight: 'bold' }
-const actionBtnStyle = (bg, color = 'black') => ({ backgroundColor: bg, color, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold' })
-
 const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
-const modalContentStyle = { background: 'white', padding: '25px', borderRadius: '8px', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }
+const modalContentStyle = { background: 'white', padding: '25px', borderRadius: '8px', maxWidth: '500px', width: '90%' }
 
 export default App

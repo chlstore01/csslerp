@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient'
 function App() {
   const [employees, setEmployees] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedSite, setSelectedSite] = useState(null) // New state for filtering by site
   const [name, setName] = useState('')
   const [designation, setDesignation] = useState('')
   const [site, setSite] = useState('')
@@ -30,11 +31,9 @@ function App() {
     }
   }
 
-  // --- IMPROVED SITE SUMMARY LOGIC ---
   const getSiteSummary = () => {
     const counts = {};
     employees.forEach(emp => {
-      // Use "Office/General" if site_location is blank
       const siteName = emp.site_location && emp.site_location.trim() !== '' 
         ? emp.site_location 
         : 'Office/General';
@@ -66,11 +65,16 @@ function App() {
     else { alert("Incorrect Password") }
   }
 
-  const filteredEmployees = employees.filter(emp => 
-    emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.site_location?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // --- FILTER LOGIC (Combines Search + Site Selection) ---
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         emp.designation?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const empSite = emp.site_location && emp.site_location.trim() !== '' ? emp.site_location : 'Office/General';
+    const matchesSite = selectedSite ? empSite === selectedSite : true;
+    
+    return matchesSearch && matchesSite;
+  })
 
   if (!isAdmin) {
     return (
@@ -93,19 +97,28 @@ function App() {
         <button onClick={() => setIsAdmin(false)} style={{ padding: '5px 10px', fontSize: '12px' }}>Logout</button>
       </div>
 
-      {/* FIXED SITE SUMMARY DASHBOARD */}
+      {/* INTERACTIVE SITE STATISTICS */}
       <div style={{ margin: '20px 0', padding: '15px', background: '#f0f4f8', borderRadius: '8px', borderLeft: '5px solid #003366' }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#003366' }}>Site Statistics:</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {summary.length > 0 ? (
-            summary.map(([siteName, count]) => (
-              <div key={siteName} style={{ background: 'white', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', border: '1px solid #ddd' }}>
-                <span style={{ color: '#555' }}>{siteName}:</span> <strong>{count}</strong>
-              </div>
-            ))
-          ) : (
-            <div style={{ fontSize: '13px', color: '#999' }}>No data available yet.</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ fontWeight: 'bold', color: '#003366' }}>Site Statistics:</div>
+          {selectedSite && (
+            <button onClick={() => setSelectedSite(null)} style={{ fontSize: '11px', color: '#003366', cursor: 'pointer', border: '1px solid #003366', background: 'white', borderRadius: '4px' }}>Show All</button>
           )}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {summary.map(([siteName, count]) => (
+            <div 
+              key={siteName} 
+              onClick={() => setSelectedSite(siteName)}
+              style={{ 
+                background: selectedSite === siteName ? '#003366' : 'white', 
+                color: selectedSite === siteName ? 'white' : '#555',
+                padding: '6px 12px', borderRadius: '4px', fontSize: '13px', border: '1px solid #ddd', cursor: 'pointer' 
+              }}
+            >
+              {siteName}: <strong>{count}</strong>
+            </div>
+          ))}
         </div>
       </div>
       
@@ -117,10 +130,10 @@ function App() {
         <button type="submit" disabled={loading} style={buttonStyle}>{loading ? 'Saving...' : 'Add to Database'}</button>
       </form>
 
-      <input style={{ ...inputStyle, borderColor: '#003366', marginBottom: '20px' }} placeholder="🔍 Search by name, post, or site..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+      <input style={{ ...inputStyle, borderColor: '#003366', marginBottom: '20px' }} placeholder="🔍 Search in current view..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <h3>Staff Directory ({filteredEmployees.length})</h3>
+        <h3>{selectedSite ? `${selectedSite} Staff` : 'Staff Directory'} ({filteredEmployees.length})</h3>
         <button onClick={fetchEmployees} style={{ height: '30px', marginTop: '15px' }}>Refresh</button>
       </div>
 

@@ -15,17 +15,17 @@ function App() {
 
   async function fetchEmployees() {
     setStatus('Fetching data...')
+    // Removed the .order('created_at') line to fix the "column does not exist" error
     const { data, error } = await supabase
-      .from('employees') // Matches your Supabase table name 
-      .select('*')
-      .order('created_at', { ascending: false })
+      .from('employees')
+      .select('*') 
 
     if (error) {
       setStatus('Error: ' + error.message)
-      console.error(error)
+      console.error("Database Error:", error)
     } else {
       setEmployees(data || [])
-      setStatus(data.length > 0 ? 'Online' : 'Database Empty')
+      setStatus(data.length > 0 ? 'Online' : 'Database Empty (0)')
     }
   }
 
@@ -33,19 +33,20 @@ function App() {
     e.preventDefault()
     setLoading(true)
     
+    // Using 'site_location' as confirmed in your Supabase table
     const { error } = await supabase
       .from('employees')
       .insert([{ 
-        name: name, 
-        designation: designation, 
-        site_location: site // Matches your confirmed column name 
+        name, 
+        designation, 
+        site_location: site 
       }])
 
     if (error) {
-      alert("Registration Failed: " + error.message)
+      alert("Error: " + error.message)
     } else {
       setName(''); setDesignation(''); setSite('');
-      fetchEmployees() 
+      fetchEmployees() // Refresh the list after adding
     }
     setLoading(false)
   }
@@ -57,6 +58,7 @@ function App() {
         System Status: {status}
       </p>
       
+      {/* Input Form */}
       <form onSubmit={handleSubmit} style={{ background: '#f4f4f4', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3 style={{ marginTop: '0' }}>Register New Personnel</h3>
         <input style={inputStyle} placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
@@ -75,7 +77,7 @@ function App() {
       {employees.map(emp => (
         <div key={emp.id} style={{ borderBottom: '1px solid #ddd', padding: '12px 0' }}>
           <strong>{emp.name}</strong> — <span style={{ color: '#003366' }}>{emp.designation}</span> <br/>
-          <small style={{ color: '#666' }}>Project Site: {emp.site_location || 'Not Assigned'}</small>
+          <small style={{ color: '#666' }}>Project Site: {emp.site_location || 'N/A'}</small>
         </div>
       ))}
     </div>

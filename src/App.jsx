@@ -15,16 +15,13 @@ function App() {
 
   async function fetchEmployees() {
     setStatus('Fetching data...')
-    // We fetch all rows without an .order() clause to avoid "column not found" errors
     const { data, error } = await supabase
       .from('employees')
       .select('*')
 
     if (error) {
       setStatus('Error: ' + error.message)
-      console.error("Database Error:", error)
     } else {
-      // [...data].reverse() takes the list and flips it so the last entry added is first
       const sortedData = data ? [...data].reverse() : []
       setEmployees(sortedData)
       setStatus(sortedData.length > 0 ? 'Online' : 'Database Empty (0)')
@@ -37,19 +34,32 @@ function App() {
     
     const { error } = await supabase
       .from('employees')
-      .insert([{ 
-        name, 
-        designation, 
-        site_location: site 
-      }])
+      .insert([{ name, designation, site_location: site }])
 
     if (error) {
       alert("Error: " + error.message)
     } else {
       setName(''); setDesignation(''); setSite('');
-      fetchEmployees() // Refresh and reverse the list automatically
+      fetchEmployees() 
     }
     setLoading(false)
+  }
+
+  // --- NEW DELETE FUNCTION ---
+  async function handleDelete(id, employeeName) {
+    const confirmed = window.confirm(`Are you sure you want to delete ${employeeName}?`);
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert("Delete failed: " + error.message);
+    } else {
+      fetchEmployees(); // Refresh the list after deleting
+    }
   }
 
   return (
@@ -59,12 +69,11 @@ function App() {
         System Status: {status}
       </p>
       
-      {/* Input Form */}
       <form onSubmit={handleSubmit} style={{ background: '#f4f4f4', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3 style={{ marginTop: '0' }}>Register New Personnel</h3>
         <input style={inputStyle} placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
         <input style={inputStyle} placeholder="Designation" value={designation} onChange={e => setDesignation(e.target.value)} required />
-        <input style={inputStyle} placeholder="Project Site (e.g. Chittagong)" value={site} onChange={e => setSite(e.target.value)} />
+        <input style={inputStyle} placeholder="Project Site" value={site} onChange={e => setSite(e.target.value)} />
         <button type="submit" disabled={loading} style={buttonStyle}>
           {loading ? 'Saving to Cloud...' : 'Add to Database'}
         </button>
@@ -76,9 +85,17 @@ function App() {
       </div>
 
       {employees.map(emp => (
-        <div key={emp.id} style={{ borderBottom: '1px solid #ddd', padding: '12px 0' }}>
-          <strong>{emp.name}</strong> — <span style={{ color: '#003366' }}>{emp.designation}</span> <br/>
-          <small style={{ color: '#666' }}>Project Site: {emp.site_location || 'N/A'}</small>
+        <div key={emp.id} style={{ borderBottom: '1px solid #ddd', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong>{emp.name}</strong> — <span style={{ color: '#003366' }}>{emp.designation}</span> <br/>
+            <small style={{ color: '#666' }}>Site: {emp.site_location || 'N/A'}</small>
+          </div>
+          <button 
+            onClick={() => handleDelete(emp.id, emp.name)}
+            style={{ backgroundColor: '#ff4d4d', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+          >
+            Delete
+          </button>
         </div>
       ))}
     </div>

@@ -15,17 +15,19 @@ function App() {
 
   async function fetchEmployees() {
     setStatus('Fetching data...')
-    // Removed the .order('created_at') line to fix the "column does not exist" error
+    // We fetch all rows without an .order() clause to avoid "column not found" errors
     const { data, error } = await supabase
       .from('employees')
-      .select('*') 
+      .select('*')
 
     if (error) {
       setStatus('Error: ' + error.message)
       console.error("Database Error:", error)
     } else {
-      setEmployees(data || [])
-      setStatus(data.length > 0 ? 'Online' : 'Database Empty (0)')
+      // [...data].reverse() takes the list and flips it so the last entry added is first
+      const sortedData = data ? [...data].reverse() : []
+      setEmployees(sortedData)
+      setStatus(sortedData.length > 0 ? 'Online' : 'Database Empty (0)')
     }
   }
 
@@ -33,7 +35,6 @@ function App() {
     e.preventDefault()
     setLoading(true)
     
-    // Using 'site_location' as confirmed in your Supabase table
     const { error } = await supabase
       .from('employees')
       .insert([{ 
@@ -46,7 +47,7 @@ function App() {
       alert("Error: " + error.message)
     } else {
       setName(''); setDesignation(''); setSite('');
-      fetchEmployees() // Refresh the list after adding
+      fetchEmployees() // Refresh and reverse the list automatically
     }
     setLoading(false)
   }

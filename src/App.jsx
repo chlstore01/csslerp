@@ -2,32 +2,28 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 function App() {
-  // Core States
   const [employees, setEmployees] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // UI States
+  // UI & Security States
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' })
   const [selectedEmployee, setSelectedEmployee] = useState(null)
-  const [showPassModal, setShowPassModal] = useState(false)
-  const [newPass, setNewPass] = useState('')
+  const [editingId, setEditingId] = useState(null) // STRICT DB ID LOCK
 
-  // THE CRITICAL FIX: Track the DB primary key separately from the form
-  const [targetId, setTargetId] = useState(null) 
-
+  // FULL FIELD LIST (Restored all previous facilities)
   const [formData, setFormData] = useState({
-    employee_id: '', name: '', designation: '', role: 'General Staff',
-    site_location: '', phone_number: '', nid_number: '', 
-    blood_group: '', joining_date: '', basic_salary: '', status: 'Active'
+    name: '', designation: '', role: 'General Staff', site_location: '', 
+    phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
+    basic_salary: '', status: 'Active', employee_id: ''
   });
 
   const MASTER_ID = "ADMIN", MASTER_KEY = "CSSL_MASTER_2026";
   const roleList = ["Admin", "General Manager", "Finance & Accountant Manager", "Supply Chain Manager", "Human Resource Manager", "Supervisor", "Engineer", "General Staff"];
 
-  // Permissions
-  const isPrivileged = currentUser && ["Admin", "General Manager", "Human Resource Manager"].includes(currentUser.role);
+  // Role Permissions
+  const canModify = currentUser && ["Admin", "General Manager", "Human Resource Manager"].includes(currentUser.role);
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance & Accountant Manager"].includes(currentUser.role);
 
   useEffect(() => { fetchEmployees() }, [])
@@ -37,31 +33,31 @@ function App() {
     if (!error) setEmployees(data ? [...data].sort((a, b) => b.id - a.id) : [])
   }
 
-  // --- REWRITTEN EDIT LOGIC ---
-  const handleEditInit = (emp) => {
-    setTargetId(emp.id); // Lock the Database ID
-    setFormData({
-      employee_id: emp.employee_id,
-      name: emp.name || '',
-      designation: emp.designation || '',
-      role: emp.role || 'General Staff',
-      site_location: emp.site_location || '',
-      phone_number: emp.phone_number || '',
-      nid_number: emp.nid_number || '',
-      blood_group: emp.blood_group || '',
-      joining_date: emp.joining_date || '',
-      basic_salary: emp.basic_salary || '',
-      status: emp.status || 'Active'
-    });
+  // --- DELETE FACILITY (FIXED) ---
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`CRITICAL: Delete ${name} permanently?`)) {
+      const { error } = await supabase.from('employees').delete().eq('id', id);
+      if (error) alert("Delete Failed: " + error.message);
+      else {
+        alert("Record Removed Successfully.");
+        fetchEmployees();
+      }
+    }
+  };
+
+  // --- EDIT FACILITY (FIXED) ---
+  const handleEditTrigger = (emp) => {
+    setEditingId(emp.id); // Secure the unique DB key
+    setFormData({ ...emp }); // Fill the form with EVERYTHING
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  async function handleSave(e) {
+  async function handleFormSubmit(e) {
     e.preventDefault();
     setLoading(true);
 
-    // Clean data for Supabase (Remove any ID or metadata from the body)
-    const payload = {
+    // CLEAN PAYLOAD: Only send actual data fields to Supabase
+    const cleanData = {
       name: formData.name,
       designation: formData.designation,
       role: formData.role,
@@ -74,139 +70,124 @@ function App() {
       status: formData.status
     };
 
-    if (targetId) {
-      // MODE: UPDATE EXISTING
-      const { error } = await supabase.from('employees').update(payload).eq('id', targetId);
+    if (editingId) {
+      // FORCE UPDATE PATH
+      const { error } = await supabase.from('employees').update(cleanData).eq('id', editingId);
       if (error) alert("Update Error: " + error.message);
-      else alert(`SUCCESS: ${formData.name} has been updated.`);
+      else alert(`Employee ${formData.name} updated successfully.`);
     } else {
-      // MODE: REGISTER NEW
-      const newEmployee = {
-        ...payload,
+      // FORCE INSERT PATH
+      const newEntry = {
+        ...cleanData,
         employee_id: `CSSL-${1001 + employees.length}`,
-        password: formData.phone_number // Default pass
+        password: formData.phone_number || '123456'
       };
-      const { error } = await supabase.from('employees').insert([newEmployee]);
+      const { error } = await supabase.from('employees').insert([newEntry]);
       if (error) alert("Registration Error: " + error.message);
-      else alert("SUCCESS: New Employee Registered.");
+      else alert("New Employee Enrolled.");
     }
 
-    resetAll();
+    setEditingId(null);
+    resetForm();
     fetchEmployees();
     setLoading(false);
   }
 
-  const handleDelete = async (id, name) => {
-    if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${name}? This cannot be undone.`)) {
-      const { error } = await supabase.from('employees').delete().eq('id', id);
-      if (error) alert(error.message);
-      else {
-        alert("Record Deleted.");
-        fetchEmployees();
-      }
-    }
+  const resetForm = () => {
+    setEditingId(null);
+    setFormData({ name: '', designation: '', role: 'General Staff', site_location: '', phone_number: '', nid_number: '', blood_group: '', joining_date: '', basic_salary: '', status: 'Active', employee_id: '' });
   };
 
-  const resetAll = () => {
-    setTargetId(null);
-    setFormData({ employee_id: '', name: '', designation: '', role: 'General Staff', site_location: '', phone_number: '', nid_number: '', blood_group: '', joining_date: '', basic_salary: '', status: 'Active' });
-  };
-
-  const exportData = () => {
-    const head = "ID,Name,Role,Status,Site\n";
-    const body = employees.map(e => `${e.employee_id},${e.name},${e.role},${e.status},${e.site_location}`).join("\n");
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([head + body], { type: 'text/csv' }));
-    link.download = 'CSSL_Staff_Data.csv';
+  // --- CSV & PRINT FACILITIES ---
+  const runExport = () => {
+    const csvContent = "data:text/csv;charset=utf-8,ID,Name,Phone,Site,Status\n" 
+      + employees.map(e => `${e.employee_id},${e.name},${e.phone_number},${e.site_location},${e.status}`).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", "CSSL_Staff_Inventory.csv");
     link.click();
   };
 
-  const printID = (emp) => {
+  const runPrint = (emp) => {
     const win = window.open('', '_blank');
-    win.document.write(`<html><body style="font-family:sans-serif; display:flex; justify-content:center; padding:50px;">
-      <div style="width:300px; border:3px solid #003366; border-radius:12px; padding:20px; position:relative;">
-        <div style="color:#003366; font-weight:bold; border-bottom:2px solid #003366; padding-bottom:5px;">COMPOSITE STEEL STRUCTURE</div>
-        <div style="position:absolute; top:20px; right:20px; background:#003366; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px;">${emp.employee_id}</div>
-        <p><strong>Name:</strong> ${emp.name}</p>
-        <p><strong>Post:</strong> ${emp.designation}</p>
-        <p><strong>Blood:</strong> ${emp.blood_group || 'N/A'}</p>
-      </div><script>setTimeout(()=> { window.print(); window.close(); }, 500);</script></body></html>`);
+    win.document.write(`<html><body style="font-family:sans-serif; display:flex; justify-content:center; padding:40px;">
+      <div style="width:300px; border:4px solid #003366; border-radius:15px; padding:20px; text-align:center;">
+        <h2 style="color:#003366; margin-bottom:5px;">CSSL BANGLADESH</h2>
+        <div style="background:#003366; color:#fff; display:inline-block; padding:3px 10px; border-radius:5px; font-weight:bold;">${emp.employee_id}</div>
+        <h3 style="margin:15px 0 5px 0;">${emp.name}</h3>
+        <p style="margin:0; color:#555;">${emp.designation}</p>
+        <p style="margin:10px 0; font-size:12px;"><b>Blood:</b> ${emp.blood_group || 'N/A'} | <b>Site:</b> ${emp.site_location}</p>
+      </div><script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
   };
 
   if (!currentUser) {
     return (
-      <div style={loginStyle}>
-        <h2 style={{ color: '#003366' }}>CSSL ERP LOGIN</h2>
+      <div style={loginBox}>
+        <h2 style={{ color: '#003366' }}>CSSL ERP System</h2>
         <input style={inputStyle} placeholder="Employee ID" onChange={e => setLoginForm({...loginForm, id: e.target.value})} />
         <input type="password" style={{...inputStyle, marginTop: '10px'}} placeholder="Password" onChange={e => setLoginForm({...loginForm, pass: e.target.value})} />
         <button onClick={() => {
-          if (loginForm.id === "ADMIN" && loginForm.pass === "CSSL_MASTER_2026") setCurrentUser({name: "Admin", role: "Admin"});
+          if (loginForm.id === MASTER_ID && loginForm.pass === MASTER_KEY) setCurrentUser({name: "Super Admin", role: "Admin"});
           else {
             const user = employees.find(e => e.employee_id === loginForm.id && e.password === loginForm.pass);
             if (user && user.status === 'Active') setCurrentUser(user);
-            else alert("Access Denied");
+            else alert("Unauthorized or Inactive Account.");
           }
-        }} style={{...buttonStyle, marginTop: '20px'}}>Sign In</button>
+        }} style={{...btnStyle, background: '#003366', color: '#fff', marginTop: '15px'}}>Login</button>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: 'auto', fontFamily: 'sans-serif' }}>
-      <div style={headerStyle}>
-        <h2>CSSL Management Portal</h2>
-        <button onClick={() => setCurrentUser(null)} style={utilBtnStyle('#dc3545', '#fff')}>Logout</button>
+    <div style={{ padding: '20px', maxWidth: '1300px', margin: 'auto', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+        <h1 style={{ color: '#003366', margin: 0 }}>CSSL Dashboard</h1>
+        <button onClick={() => setCurrentUser(null)} style={{...btnStyle, background: '#dc3545', color: '#fff', width: 'auto', padding: '8px 20px'}}>Logout</button>
       </div>
 
-      {isPrivileged && (
-        <div style={{...formBoxStyle, border: targetId ? '2px solid #ffc107' : '1px solid #ddd'}}>
-          <h3 style={{ color: targetId ? '#856404' : '#003366', marginTop: 0 }}>
-            {targetId ? `Editing Record: ${formData.employee_id}` : 'Enroll New Personnel'}
-          </h3>
-          <form onSubmit={handleSave} style={gridStyle}>
-            <input style={inputStyle} placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-            <select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-              {roleList.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <input style={inputStyle} placeholder="Designation" value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} />
-            <input style={inputStyle} placeholder="Phone" value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} />
-            <input style={inputStyle} placeholder="NID" value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} />
-            {canSeeSalary && <input type="number" style={inputStyle} placeholder="Salary (BDT)" value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} />}
-            <input style={inputStyle} placeholder="Site Location" value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} />
-            <select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-            <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px' }}>
-              <button type="submit" style={{...buttonStyle, background: targetId ? '#ffc107' : '#003366', color: targetId ? '#000' : '#fff'}}>
-                {loading ? 'Processing...' : (targetId ? 'UPDATE EMPLOYEE DATA' : 'CONFIRM REGISTRATION')}
-              </button>
-              {targetId && <button type="button" onClick={resetAll} style={{...buttonStyle, background: '#666'}}>CANCEL EDIT</button>}
+      {canModify && (
+        <div style={{...formCard, borderTop: editingId ? '8px solid #ffc107' : '8px solid #003366'}}>
+          <h3 style={{ marginTop: 0 }}>{editingId ? `📝 Modifying: ${formData.employee_id}` : '➕ New Employee Enrollment'}</h3>
+          <form onSubmit={handleFormSubmit} style={grid}>
+            <div><label style={label}>Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+            <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
+            <div><label style={label}>Role</label><select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>{roleList.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+            <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
+            <div><label style={label}>NID Number</label><input style={inputStyle} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
+            <div><label style={label}>Blood Group</label><input style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})} /></div>
+            {canSeeSalary && <div><label style={label}>Basic Salary</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
+            <div><label style={label}>Status</label><select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+            <div><label style={label}>Project Site</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
+            <div><label style={label}>Joining Date</label><input type="date" style={inputStyle} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
+            
+            <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button type="submit" disabled={loading} style={{...btnStyle, background: editingId ? '#ffc107' : '#003366', color: editingId ? '#000' : '#fff'}}>{loading ? 'Saving...' : (editingId ? 'SAVE CHANGES' : 'REGISTER STAFF')}</button>
+              {editingId && <button type="button" onClick={resetForm} style={{...btnStyle, background: '#666', color: '#fff'}}>CANCEL</button>}
             </div>
           </form>
         </div>
       )}
 
-      <div style={tableCardStyle}>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-          <input style={{...inputStyle, flex: 2}} placeholder="🔍 Search by Name or ID..." onChange={e => setSearchTerm(e.target.value)} />
-          <button onClick={exportData} style={utilBtnStyle('#28a745', '#fff')}>Export CSV</button>
+      <div style={tableContainer}>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <input style={{...inputStyle, flex: 2}} placeholder="🔍 Search by Name, ID, or Site..." onChange={e => setSearchTerm(e.target.value)} />
+          <button onClick={runExport} style={{...btnStyle, background: '#28a745', color: '#fff', width: 'auto', padding: '0 20px'}}>Export Excel</button>
         </div>
-        <table style={tableStyle}>
-          <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Status</th><th style={thStyle}>Actions</th></tr></thead>
+        <table style={table}>
+          <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Status</th><th style={th}>Actions</th></tr></thead>
           <tbody>
-            {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
+            {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm) || e.site_location?.toLowerCase().includes(searchTerm.toLowerCase())).map(emp => (
               <tr key={emp.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={tdStyle}><strong>{emp.employee_id}</strong></td>
-                <td style={tdStyle}>{emp.name}</td>
-                <td style={tdStyle}><span style={{ color: emp.status === 'Active' ? 'green' : 'red', fontWeight: 'bold' }}>{emp.status}</span></td>
-                <td style={tdStyle}>
-                  <button onClick={() => setSelectedEmployee(emp)} style={actionBtnStyle('#17a2b8', '#fff')}>View</button>
-                  {isPrivileged && (
+                <td style={td}><b>{emp.employee_id}</b></td>
+                <td style={td}>{emp.name}</td>
+                <td style={td}><span style={{ color: emp.status === 'Active' ? 'green' : 'red', fontWeight: 'bold' }}>{emp.status}</span></td>
+                <td style={td}>
+                  <button onClick={() => setSelectedEmployee(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
+                  {canModify && (
                     <>
-                      <button onClick={() => handleEditInit(emp)} style={actionBtnStyle('#ffc107', '#000')}>Edit</button>
-                      <button onClick={() => handleDelete(emp.id, emp.name)} style={actionBtnStyle('#dc3545', '#fff')}>Delete</button>
-                      <button onClick={() => printID(emp)} style={actionBtnStyle('#28a745', '#fff')}>Print</button>
+                      <button onClick={() => handleEditTrigger(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
+                      <button onClick={() => handleDelete(emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                      <button onClick={() => runPrint(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                     </>
                   )}
                 </td>
@@ -216,22 +197,22 @@ function App() {
         </table>
       </div>
 
-      {/* FIXED VIEW MODAL */}
+      {/* VIEW MODAL (RESTORED) */}
       {selectedEmployee && (
-        <div style={modalOverlayStyle} onClick={() => setSelectedEmployee(null)}>
-          <div style={modalContentStyle} onClick={e => e.stopPropagation()}>
-            <h3 style={{ borderBottom: '2px solid #003366', color: '#003366' }}>Employee Details</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
-              <p><strong>ID:</strong> {selectedEmployee.employee_id}</p>
-              <p><strong>Status:</strong> {selectedEmployee.status}</p>
-              <p><strong>Name:</strong> {selectedEmployee.name}</p>
-              <p><strong>Post:</strong> {selectedEmployee.designation}</p>
-              <p><strong>Role:</strong> {selectedEmployee.role}</p>
-              <p><strong>Phone:</strong> {selectedEmployee.phone_number}</p>
-              <p><strong>Site:</strong> {selectedEmployee.site_location}</p>
-              {canSeeSalary && <p><strong>Salary:</strong> {selectedEmployee.basic_salary} BDT</p>}
+        <div style={modalOverlay} onClick={() => setSelectedEmployee(null)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <h2 style={{ color: '#003366', borderBottom: '3px solid #003366' }}>Profile: {selectedEmployee.employee_id}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
+              <p><b>Name:</b> {selectedEmployee.name}</p>
+              <p><b>Post:</b> {selectedEmployee.designation}</p>
+              <p><b>Phone:</b> {selectedEmployee.phone_number}</p>
+              <p><b>NID:</b> {selectedEmployee.nid_number}</p>
+              <p><b>Blood Group:</b> {selectedEmployee.blood_group}</p>
+              <p><b>Site:</b> {selectedEmployee.site_location}</p>
+              <p><b>Joined:</b> {selectedEmployee.joining_date}</p>
+              {canSeeSalary && <p><b>Salary:</b> {selectedEmployee.basic_salary} BDT</p>}
             </div>
-            <button onClick={() => setSelectedEmployee(null)} style={{...buttonStyle, marginTop: '20px'}}>Close</button>
+            <button onClick={() => setSelectedEmployee(null)} style={{...btnStyle, background: '#003366', color: '#fff', marginTop: '25px'}}>Close</button>
           </div>
         </div>
       )}
@@ -240,19 +221,18 @@ function App() {
 }
 
 // STYLES
-const loginStyle = { maxWidth: '350px', margin: '100px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '10px', textAlign: 'center' }
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }
-const formBoxStyle = { background: '#fcfcfc', padding: '20px', borderRadius: '8px', marginBottom: '20px' }
-const tableCardStyle = { background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }
-const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
-const buttonStyle = { width: '100%', padding: '12px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
-const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: '13px' }
-const thStyle = { padding: '12px 8px', textAlign: 'left' }
-const tdStyle = { padding: '10px 8px' }
-const utilBtnStyle = (bg, color) => ({ backgroundColor: bg, color, border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer' })
-const actionBtnStyle = (bg, color) => ({ backgroundColor: bg, color, border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '11px' })
-const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
-const modalContentStyle = { background: 'white', padding: '25px', borderRadius: '10px', maxWidth: '500px', width: '90%' }
+const loginBox = { maxWidth: '350px', margin: '100px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '15px', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }
+const formCard = { background: '#f9f9f9', padding: '25px', borderRadius: '10px', marginBottom: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }
+const tableContainer = { background: 'white', padding: '20px', borderRadius: '10px', border: '1px solid #ddd' }
+const inputStyle = { width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '14px' }
+const label = { display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px', color: '#666' }
+const btnStyle = { width: '100%', padding: '12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }
+const table = { width: '100%', borderCollapse: 'collapse', marginTop: '10px' }
+const th = { padding: '12px', textAlign: 'left' }
+const td = { padding: '12px', fontSize: '14px' }
+const actionBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold', fontSize: '12px' })
+const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
+const modalContent = { background: 'white', padding: '30px', borderRadius: '15px', width: '90%', maxWidth: '600px' }
 
 export default App

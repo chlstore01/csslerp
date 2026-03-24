@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient'
 function App() {
   const [employees, setEmployees] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedSite, setSelectedSite] = useState(null) // New state for filtering by site
+  const [selectedSite, setSelectedSite] = useState(null)
   const [name, setName] = useState('')
   const [designation, setDesignation] = useState('')
   const [site, setSite] = useState('')
@@ -31,48 +31,60 @@ function App() {
     }
   }
 
+  // --- CSV EXPORT LOGIC ---
+  const exportToCSV = () => {
+    if (filteredEmployees.length === 0) return alert("No data to export");
+    
+    const headers = ["Name,Designation,Site Location\n"];
+    const rows = filteredEmployees.map(emp => 
+      `"${emp.name}","${emp.designation}","${emp.site_location || 'N/A'}"`
+    ).join("\n");
+    
+    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `CSSL_Staff_${selectedSite || 'Full_List'}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const getSiteSummary = () => {
     const counts = {};
     employees.forEach(emp => {
-      const siteName = emp.site_location && emp.site_location.trim() !== '' 
-        ? emp.site_location 
-        : 'Office/General';
+      const siteName = emp.site_location && emp.site_location.trim() !== '' ? emp.site_location : 'Office/General';
       counts[siteName] = (counts[siteName] || 0) + 1;
     });
     return Object.entries(counts);
   };
 
   async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    const { error } = await supabase.from('employees').insert([{ name, designation, site_location: site }])
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.from('employees').insert([{ name, designation, site_location: site }]);
     if (error) { alert("Error: " + error.message) } 
     else { setName(''); setDesignation(''); setSite(''); fetchEmployees() }
-    setLoading(false)
+    setLoading(false);
   }
 
   async function handleDelete(id, employeeName) {
-    const confirmed = window.confirm(`Delete ${employeeName}?`);
-    if (!confirmed) return;
+    if (!window.confirm(`Delete ${employeeName}?`)) return;
     const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) { alert("Delete failed: " + error.message) } 
-    else { fetchEmployees() }
+    if (error) { alert("Delete failed: " + error.message) } else { fetchEmployees() }
   }
 
   const handleLogin = (e) => {
-    e.preventDefault()
-    if (passwordInput === ADMIN_PASSWORD) { setIsAdmin(true) } 
-    else { alert("Incorrect Password") }
+    e.preventDefault();
+    if (passwordInput === ADMIN_PASSWORD) { setIsAdmin(true) } else { alert("Incorrect Password") }
   }
 
-  // --- FILTER LOGIC (Combines Search + Site Selection) ---
   const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          emp.designation?.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const empSite = emp.site_location && emp.site_location.trim() !== '' ? emp.site_location : 'Office/General';
     const matchesSite = selectedSite ? empSite === selectedSite : true;
-    
     return matchesSearch && matchesSite;
   })
 
@@ -97,7 +109,6 @@ function App() {
         <button onClick={() => setIsAdmin(false)} style={{ padding: '5px 10px', fontSize: '12px' }}>Logout</button>
       </div>
 
-      {/* INTERACTIVE SITE STATISTICS */}
       <div style={{ margin: '20px 0', padding: '15px', background: '#f0f4f8', borderRadius: '8px', borderLeft: '5px solid #003366' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <div style={{ fontWeight: 'bold', color: '#003366' }}>Site Statistics:</div>
@@ -107,15 +118,7 @@ function App() {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {summary.map(([siteName, count]) => (
-            <div 
-              key={siteName} 
-              onClick={() => setSelectedSite(siteName)}
-              style={{ 
-                background: selectedSite === siteName ? '#003366' : 'white', 
-                color: selectedSite === siteName ? 'white' : '#555',
-                padding: '6px 12px', borderRadius: '4px', fontSize: '13px', border: '1px solid #ddd', cursor: 'pointer' 
-              }}
-            >
+            <div key={siteName} onClick={() => setSelectedSite(siteName)} style={{ background: selectedSite === siteName ? '#003366' : 'white', color: selectedSite === siteName ? 'white' : '#555', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', border: '1px solid #ddd', cursor: 'pointer' }}>
               {siteName}: <strong>{count}</strong>
             </div>
           ))}
@@ -126,15 +129,18 @@ function App() {
         <h3 style={{ marginTop: '0' }}>Register New Personnel</h3>
         <input style={inputStyle} placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
         <input style={inputStyle} placeholder="Designation" value={designation} onChange={e => setDesignation(e.target.value)} required />
-        <input style={inputStyle} placeholder="Project Site (e.g. Chittagong)" value={site} onChange={e => setSite(e.target.value)} />
+        <input style={inputStyle} placeholder="Project Site" value={site} onChange={e => setSite(e.target.value)} />
         <button type="submit" disabled={loading} style={buttonStyle}>{loading ? 'Saving...' : 'Add to Database'}</button>
       </form>
 
       <input style={{ ...inputStyle, borderColor: '#003366', marginBottom: '20px' }} placeholder="🔍 Search in current view..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <h3>{selectedSite ? `${selectedSite} Staff` : 'Staff Directory'} ({filteredEmployees.length})</h3>
-        <button onClick={fetchEmployees} style={{ height: '30px', marginTop: '15px' }}>Refresh</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <h3 style={{ margin: '0' }}>{selectedSite ? `${selectedSite} Staff` : 'Staff Directory'} ({filteredEmployees.length})</h3>
+        <div style={{ display: 'flex', gap: '5px' }}>
+           <button onClick={fetchEmployees} style={{ padding: '5px 10px', fontSize: '12px' }}>Refresh</button>
+           <button onClick={exportToCSV} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Export CSV</button>
+        </div>
       </div>
 
       {filteredEmployees.map(emp => (

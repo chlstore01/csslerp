@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 
 function App() {
   const [employees, setEmployees] = useState([])
+  const [searchTerm, setSearchTerm] = useState('') // New state for search
   const [name, setName] = useState('')
   const [designation, setDesignation] = useState('')
   const [site, setSite] = useState('')
@@ -31,7 +32,6 @@ function App() {
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
-    
     const { error } = await supabase
       .from('employees')
       .insert([{ name, designation, site_location: site }])
@@ -45,22 +45,23 @@ function App() {
     setLoading(false)
   }
 
-  // --- NEW DELETE FUNCTION ---
   async function handleDelete(id, employeeName) {
     const confirmed = window.confirm(`Are you sure you want to delete ${employeeName}?`);
     if (!confirmed) return;
-
-    const { error } = await supabase
-      .from('employees')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from('employees').delete().eq('id', id);
     if (error) {
       alert("Delete failed: " + error.message);
     } else {
-      fetchEmployees(); // Refresh the list after deleting
+      fetchEmployees();
     }
   }
+
+  // --- SEARCH LOGIC ---
+  const filteredEmployees = employees.filter(emp => 
+    emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.site_location?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <div style={{ padding: '20px', maxWidth: '600px', margin: 'auto', fontFamily: 'sans-serif' }}>
@@ -69,6 +70,7 @@ function App() {
         System Status: {status}
       </p>
       
+      {/* Registration Form */}
       <form onSubmit={handleSubmit} style={{ background: '#f4f4f4', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3 style={{ marginTop: '0' }}>Register New Personnel</h3>
         <input style={inputStyle} placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
@@ -79,12 +81,22 @@ function App() {
         </button>
       </form>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3>Staff Directory ({employees.length})</h3>
-        <button onClick={fetchEmployees} style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer' }}>Refresh List</button>
+      {/* Search Bar */}
+      <div style={{ marginBottom: '20px' }}>
+        <input 
+          style={{ ...inputStyle, marginBottom: '0', borderColor: '#003366' }} 
+          placeholder="🔍 Search by name, post, or site..." 
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      {employees.map(emp => (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Staff Directory ({filteredEmployees.length})</h3>
+        <button onClick={fetchEmployees} style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer' }}>Refresh</button>
+      </div>
+
+      {filteredEmployees.map(emp => (
         <div key={emp.id} style={{ borderBottom: '1px solid #ddd', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <strong>{emp.name}</strong> — <span style={{ color: '#003366' }}>{emp.designation}</span> <br/>
@@ -98,6 +110,10 @@ function App() {
           </button>
         </div>
       ))}
+      
+      {filteredEmployees.length === 0 && employees.length > 0 && (
+        <p style={{ textAlign: 'center', color: '#999' }}>No personnel found matching "{searchTerm}"</p>
+      )}
     </div>
   )
 }

@@ -7,20 +7,18 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null); // CRITICAL: This must be here
   const ADMIN_PASSWORD = "CSSL_ADMIN_2026"
 
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    employee_id: '', name: '', designation: '', 
-    role: 'General Staff', // Default Role
+    employee_id: '', name: '', designation: '', role: 'General Staff',
     site_location: '', phone_number: '', reference_number: '', 
     nid_number: '', blood_group: '', dob: '', joining_date: '', 
     present_address: '', permanent_address: '', supervisor_name: '', 
     email: '', basic_salary: '', status: 'Active'
   });
 
-  // THE UPDATED ROLE LIST
   const roleList = [
     "Admin", "General Manager", "Finance & Accountant Manager", 
     "Supply Chain Manager", "Supply Chain Employee", 
@@ -69,7 +67,7 @@ function App() {
     return (
       emp.name?.toLowerCase().includes(term) || 
       emp.employee_id?.toLowerCase().includes(term) || 
-      emp.role?.toLowerCase().includes(term) || // Now you can search by Role!
+      emp.role?.toLowerCase().includes(term) ||
       emp.site_location?.toLowerCase().includes(term)
     );
   });
@@ -86,47 +84,35 @@ function App() {
 
   return (
     <div style={{ padding: '10px', maxWidth: '1400px', margin: 'auto', fontFamily: 'sans-serif' }}>
-      <h2 style={{ color: '#003366' }}>CSSL ERP: Composite Steel Structure Ltd.</h2>
+      <h2 style={{ color: '#003366' }}>CSSL ERP Portal</h2>
 
+      {/* REGISTRATION FORM */}
       <form onSubmit={handleSubmit} style={formBoxStyle}>
         <h3 style={{ marginTop: 0 }}>{editingId ? `Edit ${formData.employee_id}` : 'Personnel Registration'}</h3>
         <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>Full Name</label>
-            <input name="name" style={inputStyle} value={formData.name} onChange={handleInputChange} required />
-          </div>
-          <div>
-            <label style={labelStyle}>System Role</label>
+          <div><label style={labelStyle}>Full Name</label><input name="name" style={inputStyle} value={formData.name} onChange={handleInputChange} required /></div>
+          <div><label style={labelStyle}>Role</label>
             <select name="role" style={inputStyle} value={formData.role} onChange={handleInputChange}>
               {roleList.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
-          <div>
-            <label style={labelStyle}>Designation (Title)</label>
-            <input name="designation" style={inputStyle} value={formData.designation} onChange={handleInputChange} required />
-          </div>
-          <div>
-            <label style={labelStyle}>Basic Salary (BDT)</label>
-            <input name="basic_salary" type="number" style={inputStyle} value={formData.basic_salary} onChange={handleInputChange} />
-          </div>
-          <div>
-            <label style={labelStyle}>Phone</label>
-            <input name="phone_number" style={inputStyle} value={formData.phone_number} onChange={handleInputChange} />
-          </div>
-          <div>
-            <label style={labelStyle}>Project Site</label>
-            <input name="site_location" style={inputStyle} value={formData.site_location} onChange={handleInputChange} />
-          </div>
+          <div><label style={labelStyle}>Designation</label><input name="designation" style={inputStyle} value={formData.designation} onChange={handleInputChange} required /></div>
+          <div><label style={labelStyle}>Phone</label><input name="phone_number" style={inputStyle} value={formData.phone_number} onChange={handleInputChange} /></div>
+          <div><label style={labelStyle}>NID</label><input name="nid_number" style={inputStyle} value={formData.nid_number} onChange={handleInputChange} /></div>
+          <div><label style={labelStyle}>Salary (BDT)</label><input name="basic_salary" type="number" style={inputStyle} value={formData.basic_salary} onChange={handleInputChange} /></div>
+          <div><label style={labelStyle}>Site</label><input name="site_location" style={inputStyle} value={formData.site_location} onChange={handleInputChange} /></div>
+          <div><label style={labelStyle}>Joining Date</label><input name="joining_date" type="date" style={inputStyle} value={formData.joining_date} onChange={handleInputChange} /></div>
         </div>
-        <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '15px'}}>{loading ? 'Saving...' : 'Update Database'}</button>
+        <button type="submit" disabled={loading} style={{...buttonStyle, marginTop: '15px'}}>{loading ? 'Saving...' : 'Save to Database'}</button>
       </form>
 
+      {/* SEARCH AND TABLE */}
       <div style={tableContainerStyle}>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center' }}>
-          <input style={{...inputStyle, flex: 1}} placeholder="🔍 Search by Name, ID, or Role (e.g. 'Supply Chain')..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <input style={{...inputStyle, flex: 1}} placeholder="🔍 Search ID, Name, or Role..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           <div style={countBadgeStyle}>Total: {filteredEmployees.length}</div>
         </div>
-
+        
         <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
@@ -143,7 +129,7 @@ function App() {
                 <tr key={emp.id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={tdStyle}><strong>{emp.employee_id}</strong></td>
                   <td style={tdStyle}>{emp.name}</td>
-                  <td style={tdStyle}><span style={roleBadgeStyle}>{emp.role}</span></td>
+                  <td style={tdStyle}>{emp.role}</td>
                   <td style={tdStyle}>{emp.site_location}</td>
                   <td style={tdStyle}>
                     <button onClick={() => setSelectedEmployee(emp)} style={actionBtnStyle('#17a2b8', 'white')}>Details</button>
@@ -155,12 +141,41 @@ function App() {
           </table>
         </div>
       </div>
+
+      {/* POPUP MODAL (The missing part) */}
+      {selectedEmployee && (
+        <div style={modalOverlayStyle} onClick={() => setSelectedEmployee(null)}>
+          <div style={modalContentStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #003366', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#003366' }}>{selectedEmployee.employee_id} - Profile</h3>
+              <button onClick={() => setSelectedEmployee(null)} style={{ cursor: 'pointer', border: 'none', background: 'none', fontSize: '24px' }}>&times;</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px', fontSize: '14px' }}>
+              <p><strong>Name:</strong> {selectedEmployee.name}</p>
+              <p><strong>Role:</strong> {selectedEmployee.role}</p>
+              <p><strong>Designation:</strong> {selectedEmployee.designation}</p>
+              <p><strong>Salary:</strong> {selectedEmployee.basic_salary} BDT</p>
+              <p><strong>Phone:</strong> {selectedEmployee.phone_number}</p>
+              <p><strong>NID:</strong> {selectedEmployee.nid_number}</p>
+              <p><strong>Joining Date:</strong> {selectedEmployee.joining_date}</p>
+              <p><strong>Site:</strong> {selectedEmployee.site_location}</p>
+              <p><strong>Supervisor:</strong> {selectedEmployee.supervisor_name}</p>
+              <p><strong>Email:</strong> {selectedEmployee.email}</p>
+            </div>
+            <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+              <p><strong>Present Address:</strong> {selectedEmployee.present_address}</p>
+              <p><strong>Permanent Address:</strong> {selectedEmployee.permanent_address}</p>
+            </div>
+            <button onClick={() => setSelectedEmployee(null)} style={{...buttonStyle, marginTop: '20px'}}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // STYLES
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }
+const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }
 const formBoxStyle = { background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd' }
 const tableContainerStyle = { background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }
 const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
@@ -169,8 +184,10 @@ const buttonStyle = { width: '100%', padding: '12px', backgroundColor: '#003366'
 const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }
 const thStyle = { padding: '12px 8px' }
 const tdStyle = { padding: '10px 8px' }
-const roleBadgeStyle = { background: '#e9ecef', padding: '3px 7px', borderRadius: '4px', fontSize: '11px', color: '#333', fontWeight: 'bold' }
 const countBadgeStyle = { background: '#003366', color: 'white', padding: '10px', borderRadius: '4px', fontWeight: 'bold' }
-const actionBtnStyle = (bg, color = 'black') => ({ backgroundColor: bg, color, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' })
+const actionBtnStyle = (bg, color = 'black') => ({ backgroundColor: bg, color, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold' })
+
+const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
+const modalContentStyle = { background: 'white', padding: '25px', borderRadius: '8px', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }
 
 export default App

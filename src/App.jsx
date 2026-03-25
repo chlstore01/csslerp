@@ -11,7 +11,7 @@ function App() {
   // MODAL & EDITING STATES
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingDbId, setEditingDbId] = useState(null) // This will now strictly store the Uppercase ID
+  const [editingDbId, setEditingDbId] = useState(null) // Stores the primary key 'id'
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -34,17 +34,17 @@ function App() {
     try {
       const { data, error } = await supabase.from('employees').select('*')
       if (error) throw error;
-      // Use Uppercase ID for sorting
-      setEmployees(data ? [...data].sort((a, b) => (b.ID || 0) - (a.ID || 0)) : [])
+      // Sorting by lowercase 'id' (Standard Supabase default)
+      setEmployees(data ? [...data].sort((a, b) => (b.id || 0) - (a.id || 0)) : [])
     } catch (err) { console.error("Sync Error:", err.message) }
   }
 
-  // --- ACTION: DELETE (Strictly Uppercase ID) ---
+  // --- ACTION: DELETE (Reverted to lowercase 'id') ---
   const handleDelete = async (dbId, name) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('employees').delete().eq('ID', dbId);
+      const { error } = await supabase.from('employees').delete().eq('id', dbId);
       if (error) throw error;
       alert("Employee deleted successfully.");
       fetchEmployees();
@@ -65,10 +65,10 @@ function App() {
     setShowModal(true);
   };
 
-  // --- ACTION: EDIT (The Red Circle Button) ---
+  // --- ACTION: EDIT ---
   const handleEdit = (emp) => {
     setIsEditing(true);
-    setEditingDbId(emp.ID); // Capture the Uppercase ID
+    setEditingDbId(emp.id); // Capture the lowercase id
     setFormData({ ...emp });
     setShowModal(true);
   };
@@ -96,8 +96,8 @@ function App() {
 
     try {
       if (isEditing && editingDbId) {
-        // UPDATE EXISTING (Strict Uppercase ID)
-        const { error } = await supabase.from('employees').update(payload).eq('ID', editingDbId);
+        // UPDATE EXISTING (Lowercase 'id')
+        const { error } = await supabase.from('employees').update(payload).eq('id', editingDbId);
         if (error) throw error;
         alert("Information Updated Successfully.");
       } else {
@@ -121,10 +121,10 @@ function App() {
       body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
       .c { width: 85.6mm; height: 53.98mm; border: 1.5pt solid #003366; border-radius: 3mm; padding: 3mm; box-sizing: border-box; font-family: sans-serif; background: #fff; position: relative; }
       .h { color: #003366; font-size: 11pt; font-weight: bold; border-bottom: 1pt solid #003366; margin-bottom: 2mm; }
-      .id { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
+      .id-tag { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
       .i { font-size: 8.5pt; line-height: 1.3; }
     </style></head><body>
-      <div class="c"><div class="h">CSSL BANGLADESH</div><div class="id">${emp.employee_id}</div>
+      <div class="c"><div class="h">CSSL BANGLADESH</div><div class="id-tag">${emp.employee_id}</div>
       <div class="i"><b>NAME:</b> ${emp.name}<br/><b>POST:</b> ${emp.designation}<br/><b>BLOOD:</b> ${emp.blood_group || 'N/A'}<br/><b>SITE:</b> ${emp.site_location}</div></div>
       <script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
   };
@@ -162,14 +162,14 @@ function App() {
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
             {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
-              <tr key={emp.ID} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={emp.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={tdStyle}><b>{emp.employee_id}</b></td>
                 <td style={tdStyle}>{emp.name}</td>
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
                   <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.ID, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  <button onClick={() => handleDelete(emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -178,7 +178,6 @@ function App() {
         </table>
       </div>
 
-      {/* --- POP-UP MODAL: ADD / UPDATE --- */}
       {showModal && (
         <div style={modalOverlay}>
           <div style={modalContent}>
@@ -208,7 +207,6 @@ function App() {
         </div>
       )}
 
-      {/* --- VIEW ONLY MODAL (RESTORED SALARY) --- */}
       {selectedViewUser && (
         <div style={modalOverlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>

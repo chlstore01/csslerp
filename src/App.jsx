@@ -58,7 +58,6 @@ function App() {
     setShowModal(true);
   };
 
-  // --- FIXED: Form Mapping for Edit ---
   const handleEdit = (emp) => {
     setIsEditing(true);
     setEditingDbId(emp.employee_id);
@@ -67,71 +66,43 @@ function App() {
       email: emp.email || '',
       designation: emp.designation || '',
       role: emp.role || 'General Staff',
-      site_location: emp.site_location || '', 
+      site_location: emp.site_location || '',
       phone_number: emp.phone_number || '',
       nid_number: emp.nid_number || '',
       blood_group: emp.blood_group || '',
       joining_date: emp.joining_date || '',
       dob: emp.dob || '',
-      reference_number: emp.reference_number || '', 
+      reference_number: emp.reference_number || '',
       basic_salary: emp.basic_salary || '',
       status: emp.status || 'Active',
       present_address: emp.present_address || '',
-      permanent_address: emp.permanent_address || '', 
+      permanent_address: emp.permanent_address || '',
       supervisor_name: emp.supervisor_name || '',
       password: emp.password || ''
     });
     setShowModal(true);
   };
 
-  // --- FIXED: Full Field Update Logic ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-
-    const payload = {
-      name: formData.name,
-      email: formData.email,
-      designation: formData.designation,
-      role: formData.role,
-      site_location: formData.site_location,
-      phone_number: formData.phone_number,
-      nid_number: formData.nid_number,
-      blood_group: formData.blood_group,
-      joining_date: formData.joining_date || null,
-      dob: formData.dob || null,
-      reference_number: formData.reference_number,
-      basic_salary: formData.basic_salary || null,
-      status: formData.status,
-      present_address: formData.present_address,
-      permanent_address: formData.permanent_address,
-      supervisor_name: formData.supervisor_name,
-      password: formData.password || formData.phone_number || '123456'
-    };
+    const payload = { ...formData, joining_date: formData.joining_date || null, dob: formData.dob || null, basic_salary: formData.basic_salary || null };
+    if (!payload.password) payload.password = formData.phone_number || '123456';
 
     try {
       if (isEditing && editingDbId) {
-        const { error } = await supabase
-          .from('employees')
-          .update(payload)
-          .eq('employee_id', editingDbId);
-
+        const { error } = await supabase.from('employees').update(payload).eq('employee_id', editingDbId);
         if (error) throw error;
-        alert("Employee details updated successfully.");
+        alert("Updated.");
       } else {
         const newID = `CSSL-${1001 + employees.length}`;
-        const { error } = await supabase
-          .from('employees')
-          .insert([{ ...payload, employee_id: newID }]);
-        
+        const { error } = await supabase.from('employees').insert([{ ...payload, employee_id: newID }]);
         if (error) throw error;
-        alert("New record created.");
+        alert("Created.");
       }
       setShowModal(false);
       fetchEmployees();
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally { setLoading(false); }
+    } catch (err) { alert(err.message); } finally { setLoading(false); }
   }
 
   const printID = (emp) => {
@@ -177,7 +148,7 @@ function App() {
       </div>
 
       <div style={tableCard}>
-        <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search..." onChange={e => setSearchTerm(e.target.value)} />
+        <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search by name or ID..." onChange={e => setSearchTerm(e.target.value)} />
         <table style={tableStyle}>
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
@@ -201,36 +172,57 @@ function App() {
       {showModal && (
         <div style={modalOverlay}>
           <div style={modalContent}>
-            <h3>{isEditing ? 'Update Employee' : 'Enrollment'}</h3>
+            <h3 style={{ borderBottom: '2px solid #003366', paddingBottom: '10px' }}>{isEditing ? 'Update Employee' : 'New Enrollment'}</h3>
             <form onSubmit={handleSubmit} style={gridStyle}>
-              <div><label style={label}>Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+              {/* Row 1 */}
+              <div><label style={label}>Full Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+              <div><label style={label}>Email Address</label><input type="email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              
+              {/* Row 2 */}
               <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
               <div><label style={label}>Role</label>
                 <select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                   {roles.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+
+              {/* Row 3 */}
+              <div><label style={label}>Phone Number</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
+              <div><label style={label}>NID Number</label><input style={inputStyle} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
+
+              {/* Row 4 */}
+              <div><label style={label}>Joining Date</label><input type="date" style={inputStyle} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
+              <div><label style={label}>Supervisor Name</label><input style={inputStyle} value={formData.supervisor_name} onChange={e => setFormData({...formData, supervisor_name: e.target.value})} /></div>
+
+              {/* Row 5 */}
+              <div style={{ gridColumn: 'span 2' }}><label style={label}>Present Address</label><input style={inputStyle} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
+              <div style={{ gridColumn: 'span 2' }}><label style={label}>Permanent Address</label><input style={inputStyle} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
+
+              {/* Row 6 */}
               <div><label style={label}>Site Location</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
-              <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
               <div><label style={label}>Blood Group</label>
                 <select style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
                   <option value="">Select</option>
                   {bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
-              <div><label style={label}>DOB</label><input type="date" style={inputStyle} value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
+
+              {/* Row 7 */}
+              <div><label style={label}>Date of Birth</label><input type="date" style={inputStyle} value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
               <div><label style={label}>Status</label>
                 <select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
-              <div><label style={label}>Ref No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
-              {canSeeSalary && <div><label style={label}>Salary</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
-              <div><label style={label}>Password</label><input type="text" style={inputStyle} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Auto-fills with Phone if empty" /></div>
-              
-              <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="submit" disabled={loading} style={{...btnStyle, background: '#003366', color: '#fff'}}>{loading ? 'Saving...' : 'SAVE CHANGES'}</button>
+
+              {/* Row 8 */}
+              {canSeeSalary && <div><label style={label}>Basic Salary (BDT)</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
+              <div><label style={label}>Reference No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
+
+              {/* Action Buttons */}
+              <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button type="submit" disabled={loading} style={{...btnStyle, background: '#003366', color: '#fff'}}>{loading ? 'Processing...' : 'SAVE EMPLOYEE'}</button>
                 <button type="button" onClick={() => setShowModal(false)} style={{...btnStyle, background: '#ccc'}}>CANCEL</button>
               </div>
             </form>
@@ -241,13 +233,18 @@ function App() {
       {selectedViewUser && (
         <div style={modalOverlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
-            <h2 style={{ color: '#003366' }}>Details: {selectedViewUser.employee_id}</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <h2 style={{ color: '#003366', borderBottom: '2px solid #003366' }}>ID: {selectedViewUser.employee_id}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
               <p><b>Name:</b> {selectedViewUser.name}</p>
+              <p><b>Email:</b> {selectedViewUser.email}</p>
               <p><b>Post:</b> {selectedViewUser.designation}</p>
               <p><b>Site:</b> {selectedViewUser.site_location}</p>
-              <p><b>DOB:</b> {selectedViewUser.dob}</p>
+              <p><b>NID:</b> {selectedViewUser.nid_number}</p>
+              <p><b>Joining:</b> {selectedViewUser.joining_date}</p>
+              <p><b>Supervisor:</b> {selectedViewUser.supervisor_name}</p>
               <p><b>Status:</b> {selectedViewUser.status}</p>
+              <div style={{ gridColumn: 'span 2' }}><p><b>Present Address:</b> {selectedViewUser.present_address}</p></div>
+              <div style={{ gridColumn: 'span 2' }}><p><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p></div>
               {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
             </div>
             <button onClick={() => setSelectedViewUser(null)} style={{...btnStyle, background: '#666', color: '#fff', marginTop: '20px'}}>Close</button>
@@ -258,19 +255,19 @@ function App() {
   );
 }
 
-// STYLES (Keep existing styles below)
+// STYLES
 const loginStyle = { maxWidth: '300px', margin: '100px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '10px', textAlign: 'center' }
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }
+const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }
 const tableCard = { background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }
-const inputStyle = { width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }
-const label = { fontSize: '12px', fontWeight: 'bold', color: '#666' }
+const inputStyle = { width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box', marginTop: '4px' }
+const label = { fontSize: '11px', fontWeight: 'bold', color: '#003366', textTransform: 'uppercase' }
 const btnStyle = { width: '100%', padding: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
 const tableStyle = { width: '100%', borderCollapse: 'collapse' }
 const thStyle = { padding: '10px', textAlign: 'left' }
 const tdStyle = { padding: '10px' }
 const actionBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '5px 8px', borderRadius: '3px', cursor: 'pointer', marginRight: '3px', fontSize: '11px' })
 const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
-const modalContent = { background: 'white', padding: '25px', borderRadius: '10px', width: '90%', maxWidth: '700px' }
+const modalContent = { background: 'white', padding: '25px', borderRadius: '10px', width: '90%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' }
 
 export default App

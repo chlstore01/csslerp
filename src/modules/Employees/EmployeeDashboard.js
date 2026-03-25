@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
-function App() {
+export default function EmployeeDashboard({ currentUser }) {
   const [employees, setEmployees] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -138,19 +138,35 @@ function App() {
   }
 
   return (
+
     <div style={{ padding: '20px', maxWidth: '1200px', margin: 'auto', fontFamily: 'sans-serif' }}>
       <div style={headerStyle}>
         <h2 style={{ color: '#003366' }}>CSSL Dashboard</h2>
         <div>
-          <button onClick={handleAddNew} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px', marginRight: '10px'}}>+ ADD NEW</button>
-          <button onClick={() => setCurrentUser(null)} style={{...btnStyle, background: '#dc3545', color: '#fff', width: 'auto', padding: '10px 20px'}}>Logout</button>
+          {/* GATE 1: Only Admin or HR Manager can see "+ ADD NEW" */}
+          {(currentUser?.role === 'Admin' || currentUser?.role === 'HR Manager') && (
+            <button onClick={handleAddNew} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px', marginRight: '10px'}}>
+              + ADD NEW
+            </button>
+          )}
+          
+          <button onClick={() => window.location.reload()} style={{...btnStyle, background: '#6c757d', color: '#fff', width: 'auto', padding: '10px 20px'}}>
+            Refresh List
+          </button>
         </div>
       </div>
 
       <div style={tableCard}>
         <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search by name or ID..." onChange={e => setSearchTerm(e.target.value)} />
         <table style={tableStyle}>
-          <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
+          <thead>
+            <tr style={{ background: '#003366', color: '#fff' }}>
+              <th style={thStyle}>ID</th>
+              <th style={thStyle}>Name</th>
+              <th style={thStyle}>Designation</th>
+              <th style={thStyle}>Actions</th>
+            </tr>
+          </thead>
           <tbody>
             {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
               <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
@@ -158,9 +174,19 @@ function App() {
                 <td style={tdStyle}>{emp.name}</td>
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
+                  {/* VIEW: Everyone can see this */}
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
-                  <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+
+                  {/* GATE 2: Only Admin or HR Manager can see "Edit" */}
+                  {(currentUser?.role === 'Admin' || currentUser?.role === 'HR Manager') && (
+                    <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
+                  )}
+
+                  {/* GATE 3: Only Admin can see "Delete" */}
+                  {currentUser?.role === 'Admin' && (
+                    <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  )}
+
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -269,9 +295,3 @@ const tdStyle = { padding: '10px' }
 const actionBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '5px 8px', borderRadius: '3px', cursor: 'pointer', marginRight: '3px', fontSize: '11px' })
 const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
 const modalContent = { background: 'white', padding: '25px', borderRadius: '10px', width: '90%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' }
-{currentUser.role === 'Admin' && (
-  <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>
-    Delete
-  </button>
-)}
-export default App

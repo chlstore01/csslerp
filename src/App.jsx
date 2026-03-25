@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import EmployeeDashboard from './modules/EmployeeManagement/EmployeeDashboard';
-
 // --- ROLE GUARD COMPONENT ---
 // This wraps a module and checks if the user's role is allowed
 const RoleGuard = ({ user, allowedRoles, children }) => {

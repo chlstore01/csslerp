@@ -136,52 +136,134 @@ export default function EmployeeDashboard({ currentUser }) {
       </div>
 
       {/* FORM MODAL (ADD/EDIT) */}
-      {showModal && (
-        <div style={overlay}>
-          <div style={modalBox}>
-            <h3 style={{ borderBottom: '2px solid #003366', paddingBottom: '10px' }}>{isEditing ? 'Update Employee File' : 'New Enrollment Form'}</h3>
-            <form onSubmit={handleSubmit} style={grid}>
-              <div><label style={lbl}>Name</label><input style={inp} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
-              <div><label style={lbl}>Email</label><input style={inp} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-              <div><label style={lbl}>Designation</label><input style={inp} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
-              <div><label style={lbl}>Role</label>
-                <select style={inp} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              
-              {/* ADMIN ONLY PASSWORD EDIT */}
-              {isAdmin && (
-                <div><label style={lbl}>Login Password</label><input style={inp} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="User's login key" /></div>
-              )}
-
-              {canSeeSalary && (
-                <div><label style={lbl}>Salary (BDT)</label><input type="number" style={inp} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>
-              )}
-
-              <div><label style={lbl}>Phone</label><input style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
-              <div><label style={lbl}>NID</label><input style={inp} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
-              <div><label style={lbl}>Joining Date</label><input type="date" style={inp} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
-              <div><label style={lbl}>Supervisor</label><input style={inp} value={formData.supervisor_name} onChange={e => setFormData({...formData, supervisor_name: e.target.value})} /></div>
-              <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Present Address</label><input style={inp} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
-              <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Permanent Address</label><input style={inp} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
-              <div><label style={lbl}>Blood Group</label>
-                <select style={inp} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
-                   <option value="">Select</option>
-                   {bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Site Location</label><input style={inp} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
-
-              <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE RECORD'}</button>
-                <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>CANCEL</button>
-              </div>
-            </form>
-          </div>
+{showModal && (
+  <div style={overlay}>
+    <div style={modalBox}>
+      <h3 style={{ borderBottom: '2px solid #003366', paddingBottom: '10px' }}>
+        {isEditing ? 'Update Employee File' : 'New Enrollment Form'}
+      </h3>
+      <form onSubmit={handleSubmit} style={grid}>
+        
+        {/* Full Name */}
+        <div>
+          <label htmlFor="emp_name" style={lbl}>Name</label>
+          <input 
+            id="emp_name"
+            name="name"
+            autoComplete="name"
+            style={inp} 
+            value={formData.name} 
+            onChange={e => setFormData({...formData, name: e.target.value})} 
+            required 
+          />
         </div>
-      )}
 
+        {/* Email */}
+        <div>
+          <label htmlFor="emp_email" style={lbl}>Email</label>
+          <input 
+            id="emp_email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            style={inp} 
+            value={formData.email} 
+            onChange={e => setFormData({...formData, email: e.target.value})} 
+          />
+        </div>
+
+        {/* Designation */}
+        <div>
+          <label htmlFor="emp_designation" style={lbl}>Designation</label>
+          <input 
+            id="emp_designation"
+            name="designation"
+            style={inp} 
+            value={formData.designation} 
+            onChange={e => setFormData({...formData, designation: e.target.value})} 
+          />
+        </div>
+
+        {/* Role Selection */}
+        <div>
+          <label htmlFor="emp_role" style={lbl}>Role</label>
+          <select 
+            id="emp_role"
+            name="role"
+            style={inp} 
+            value={formData.role} 
+            onChange={e => setFormData({...formData, role: e.target.value})}
+          >
+            {roles.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        
+        {/* ADMIN ONLY PASSWORD EDIT - Fixed with proper ID/Name */}
+        {isAdmin && (
+          <div>
+            <label htmlFor="emp_password" style={lbl}>Login Password</label>
+            <input 
+              id="emp_password"
+              name="password"
+              type="text" 
+              autoComplete="new-password"
+              style={inp} 
+              value={formData.password} 
+              onChange={e => setFormData({...formData, password: e.target.value})} 
+              placeholder="User's login key" 
+            />
+          </div>
+        )}
+
+        {/* Salary Gate */}
+        {canSeeSalary && (
+          <div>
+            <label htmlFor="emp_salary" style={lbl}>Salary (BDT)</label>
+            <input 
+              id="emp_salary"
+              name="basic_salary"
+              type="number" 
+              style={inp} 
+              value={formData.basic_salary} 
+              onChange={e => setFormData({...formData, basic_salary: e.target.value})} 
+            />
+          </div>
+        )}
+
+        {/* Phone Number */}
+        <div>
+          <label htmlFor="emp_phone" style={lbl}>Phone</label>
+          <input 
+            id="emp_phone"
+            name="phone_number"
+            autoComplete="tel"
+            style={inp} 
+            value={formData.phone_number} 
+            onChange={e => setFormData({...formData, phone_number: e.target.value})} 
+          />
+        </div>
+
+        {/* NID Number */}
+        <div>
+          <label htmlFor="emp_nid" style={lbl}>NID</label>
+          <input 
+            id="emp_nid"
+            name="nid_number"
+            style={inp} 
+            value={formData.nid_number} 
+            onChange={e => setFormData({...formData, nid_number: e.target.value})} 
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '20px' }}>
+          <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE RECORD'}</button>
+          <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>CANCEL</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       {/* VIEW MODAL */}
       {selectedViewUser && (
         <div style={overlay} onClick={() => setSelectedViewUser(null)}>

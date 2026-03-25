@@ -23,6 +23,9 @@ function App() {
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
+  // --- ROLE BASED ACCESS LOGIC ---
+  const isAdmin = currentUser?.role === "Admin";
+  const canManageEmployees = currentUser && ["Admin", "HR Manager", "General Manager"].includes(currentUser.role);
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance Manager"].includes(currentUser.role);
 
   useEffect(() => { fetchEmployees() }, [])
@@ -61,44 +64,33 @@ function App() {
   const handleEdit = (emp) => {
     setIsEditing(true);
     setEditingDbId(emp.employee_id);
-    setFormData({
-      name: emp.name || '',
-      email: emp.email || '',
-      designation: emp.designation || '',
-      role: emp.role || 'General Staff',
-      site_location: emp.site_location || '',
-      phone_number: emp.phone_number || '',
-      nid_number: emp.nid_number || '',
-      blood_group: emp.blood_group || '',
-      joining_date: emp.joining_date || '',
-      dob: emp.dob || '',
-      reference_number: emp.reference_number || '',
-      basic_salary: emp.basic_salary || '',
-      status: emp.status || 'Active',
-      present_address: emp.present_address || '',
-      permanent_address: emp.permanent_address || '',
-      supervisor_name: emp.supervisor_name || '',
-      password: emp.password || ''
-    });
+    setFormData({ ...emp }); // Spreads all existing fields including password
     setShowModal(true);
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    const payload = { ...formData, joining_date: formData.joining_date || null, dob: formData.dob || null, basic_salary: formData.basic_salary || null };
+    const payload = { 
+      ...formData, 
+      joining_date: formData.joining_date || null, 
+      dob: formData.dob || null, 
+      basic_salary: formData.basic_salary || null 
+    };
+    
+    // Auto-generate password if left blank
     if (!payload.password) payload.password = formData.phone_number || '123456';
 
     try {
       if (isEditing && editingDbId) {
         const { error } = await supabase.from('employees').update(payload).eq('employee_id', editingDbId);
         if (error) throw error;
-        alert("Updated.");
+        alert("Updated Successfully.");
       } else {
         const newID = `CSSL-${1001 + employees.length}`;
         const { error } = await supabase.from('employees').insert([{ ...payload, employee_id: newID }]);
         if (error) throw error;
-        alert("Created.");
+        alert("Created Successfully.");
       }
       setShowModal(false);
       fetchEmployees();
@@ -120,12 +112,13 @@ function App() {
       <script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
   };
 
+  // --- LOGIN SCREEN ---
   if (!currentUser) {
     return (
       <div style={loginStyle}>
-        <h2 style={{ color: '#003366' }}>CSSL ERP</h2>
-        <input style={inputStyle} placeholder="ID" onChange={e => setLoginForm({...loginForm, id: e.target.value})} />
-        <input type="password" style={{...inputStyle, marginTop: '10px'}} placeholder="Pass" onChange={e => setLoginForm({...loginForm, pass: e.target.value})} />
+        <h2 style={{ color: '#003366' }}>CSSL ERP LOGIN</h2>
+        <input style={inputStyle} placeholder="User ID" onChange={e => setLoginForm({...loginForm, id: e.target.value})} />
+        <input type="password" style={{...inputStyle, marginTop: '10px'}} placeholder="Password" onChange={e => setLoginForm({...loginForm, pass: e.target.value})} />
         <button style={{...btnStyle, marginTop: '20px', background: '#003366', color: '#fff'}} onClick={() => {
           if (loginForm.id === "ADMIN" && loginForm.pass === "CSSL_MASTER_2026") setCurrentUser({name: "Admin", role: "Admin"});
           else {
@@ -137,12 +130,19 @@ function App() {
     );
   }
 
+  // --- DASHBOARD ---
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: 'auto', fontFamily: 'sans-serif' }}>
       <div style={headerStyle}>
-        <h2 style={{ color: '#003366' }}>CSSL Dashboard</h2>
         <div>
-          <button onClick={handleAddNew} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px', marginRight: '10px'}}>+ ADD NEW</button>
+           <h2 style={{ color: '#003366', margin: 0 }}>CSSL Dashboard</h2>
+           <small>Logged in as: <b>{currentUser.name}</b> ({currentUser.role})</small>
+        </div>
+        <div>
+          {/* GATE: Only Admin/HR/GM can add */}
+          {canManageEmployees && (
+            <button onClick={handleAddNew} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px', marginRight: '10px'}}>+ ADD NEW</button>
+          )}
           <button onClick={() => setCurrentUser(null)} style={{...btnStyle, background: '#dc3545', color: '#fff', width: 'auto', padding: '10px 20px'}}>Logout</button>
         </div>
       </div>
@@ -159,8 +159,17 @@ function App() {
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
-                  <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  
+                  {/* GATE: Only Admin/HR/GM can Edit */}
+                  {canManageEmployees && (
+                    <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
+                  )}
+                  
+                  {/* GATE: Only Admin can Delete */}
+                  {isAdmin && (
+                    <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  )}
+                  
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -174,31 +183,20 @@ function App() {
           <div style={modalContent}>
             <h3 style={{ borderBottom: '2px solid #003366', paddingBottom: '10px' }}>{isEditing ? 'Update Employee' : 'New Enrollment'}</h3>
             <form onSubmit={handleSubmit} style={gridStyle}>
-              {/* Row 1 */}
               <div><label style={label}>Full Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
               <div><label style={label}>Email Address</label><input type="email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-              
-              {/* Row 2 */}
               <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
               <div><label style={label}>Role</label>
                 <select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                   {roles.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-
-              {/* Row 3 */}
               <div><label style={label}>Phone Number</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
               <div><label style={label}>NID Number</label><input style={inputStyle} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
-
-              {/* Row 4 */}
               <div><label style={label}>Joining Date</label><input type="date" style={inputStyle} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
               <div><label style={label}>Supervisor Name</label><input style={inputStyle} value={formData.supervisor_name} onChange={e => setFormData({...formData, supervisor_name: e.target.value})} /></div>
-
-              {/* Row 5 */}
               <div style={{ gridColumn: 'span 2' }}><label style={label}>Present Address</label><input style={inputStyle} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
               <div style={{ gridColumn: 'span 2' }}><label style={label}>Permanent Address</label><input style={inputStyle} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
-
-              {/* Row 6 */}
               <div><label style={label}>Site Location</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
               <div><label style={label}>Blood Group</label>
                 <select style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
@@ -206,8 +204,6 @@ function App() {
                   {bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
-
-              {/* Row 7 */}
               <div><label style={label}>Date of Birth</label><input type="date" style={inputStyle} value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
               <div><label style={label}>Status</label>
                 <select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
@@ -216,11 +212,13 @@ function App() {
                 </select>
               </div>
 
-              {/* Row 8 */}
+              {/* NEW PASSWORD FIELD */}
+              <div><label style={label}>Login Password</label><input style={inputStyle} placeholder="Leave blank to use Phone No" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
+              
               {canSeeSalary && <div><label style={label}>Basic Salary (BDT)</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
+              
               <div><label style={label}>Reference No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
 
-              {/* Action Buttons */}
               <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button type="submit" disabled={loading} style={{...btnStyle, background: '#003366', color: '#fff'}}>{loading ? 'Processing...' : 'SAVE EMPLOYEE'}</button>
                 <button type="button" onClick={() => setShowModal(false)} style={{...btnStyle, background: '#ccc'}}>CANCEL</button>
@@ -243,6 +241,7 @@ function App() {
               <p><b>Joining:</b> {selectedViewUser.joining_date}</p>
               <p><b>Supervisor:</b> {selectedViewUser.supervisor_name}</p>
               <p><b>Status:</b> {selectedViewUser.status}</p>
+              {isAdmin && <p><b>Password:</b> {selectedViewUser.password}</p>}
               <div style={{ gridColumn: 'span 2' }}><p><b>Present Address:</b> {selectedViewUser.present_address}</p></div>
               <div style={{ gridColumn: 'span 2' }}><p><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p></div>
               {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
@@ -271,4 +270,3 @@ const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height
 const modalContent = { background: 'white', padding: '25px', borderRadius: '10px', width: '90%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' }
 
 export default App
-

@@ -152,7 +152,8 @@ export default function EmployeeDashboard({ currentUser }) {
         <div style={overlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #003366', paddingBottom: '10px', marginBottom: '15px' }}>
-              <h2 style={{ margin: 0, color: '#003366' }}>Employee Profile: {selectedViewUser.employee_id}</h2>
+              <h2>TESTING UPDATE - 123</h2>
+              <h2  style={{ margin: 0, color: '#003366' }}>Employee Profile: {selectedViewUser.employee_id}</h2>
               <button onClick={() => setSelectedViewUser(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>×</button>
             </div>
             <div style={grid}>

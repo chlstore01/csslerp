@@ -16,8 +16,8 @@ function App() {
   const [formData, setFormData] = useState({
     name: '', email: '', designation: '', role: 'General Staff', site_location: '',
     phone_number: '', nid_number: '', blood_group: '', joining_date: '',
-    dob: '', reference_numbe: '', basic_salary: '', status: 'Active',
-    present_address: '', permanent_addre: '', supervisor_name: ''
+    dob: '', reference_number: '', basic_salary: '', status: 'Active',
+    present_address: '', permanent_address: '', supervisor_name: '', password: ''
   });
 
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
@@ -52,13 +52,13 @@ function App() {
     setFormData({
       name: '', email: '', designation: '', role: 'General Staff', site_location: '',
       phone_number: '', nid_number: '', blood_group: '', joining_date: '',
-      dob: '', reference_numbe: '', basic_salary: '', status: 'Active',
-      present_address: '', permanent_addre: '', supervisor_name: ''
+      dob: '', reference_number: '', basic_salary: '', status: 'Active',
+      present_address: '', permanent_address: '', supervisor_name: '', password: ''
     });
     setShowModal(true);
   };
 
-  // --- FIXED: Form Mapping for Edit using Supabase Column Names ---
+  // --- FIXED: Form Mapping for Edit ---
   const handleEdit = (emp) => {
     setIsEditing(true);
     setEditingDbId(emp.employee_id);
@@ -67,23 +67,24 @@ function App() {
       email: emp.email || '',
       designation: emp.designation || '',
       role: emp.role || 'General Staff',
-      site_location: emp.site_location || '',
+      site_location: emp.site_location || '', 
       phone_number: emp.phone_number || '',
       nid_number: emp.nid_number || '',
       blood_group: emp.blood_group || '',
       joining_date: emp.joining_date || '',
       dob: emp.dob || '',
-      reference_numbe: emp.reference_numbe || '', // Fixed mapping
+      reference_number: emp.reference_number || '', 
       basic_salary: emp.basic_salary || '',
       status: emp.status || 'Active',
       present_address: emp.present_address || '',
-      permanent_addre: emp.permanent_addre || '', // Fixed mapping
-      supervisor_name: emp.supervisor_name || ''
+      permanent_address: emp.permanent_address || '', 
+      supervisor_name: emp.supervisor_name || '',
+      password: emp.password || ''
     });
     setShowModal(true);
   };
 
-  // --- FIXED: Update Logic using exact DB Column Names ---
+  // --- FIXED: Full Field Update Logic ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -99,12 +100,13 @@ function App() {
       blood_group: formData.blood_group,
       joining_date: formData.joining_date || null,
       dob: formData.dob || null,
-      reference_numbe: formData.reference_numbe, // DB specific
+      reference_number: formData.reference_number,
       basic_salary: formData.basic_salary || null,
       status: formData.status,
       present_address: formData.present_address,
-      permanent_addre: formData.permanent_addre, // DB specific
-      supervisor_name: formData.supervisor_name
+      permanent_address: formData.permanent_address,
+      supervisor_name: formData.supervisor_name,
+      password: formData.password || formData.phone_number || '123456'
     };
 
     try {
@@ -115,12 +117,12 @@ function App() {
           .eq('employee_id', editingDbId);
 
         if (error) throw error;
-        alert("Updated successfully.");
+        alert("Employee details updated successfully.");
       } else {
         const newID = `CSSL-${1001 + employees.length}`;
         const { error } = await supabase
           .from('employees')
-          .insert([{ ...payload, employee_id: newID, password: formData.phone_number || '123456' }]);
+          .insert([{ ...payload, employee_id: newID }]);
         
         if (error) throw error;
         alert("New record created.");
@@ -223,8 +225,9 @@ function App() {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
-              <div><label style={label}>Ref No.</label><input style={inputStyle} value={formData.reference_numbe} onChange={e => setFormData({...formData, reference_numbe: e.target.value})} /></div>
+              <div><label style={label}>Ref No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
               {canSeeSalary && <div><label style={label}>Salary</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
+              <div><label style={label}>Password</label><input type="text" style={inputStyle} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Auto-fills with Phone if empty" /></div>
               
               <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="submit" disabled={loading} style={{...btnStyle, background: '#003366', color: '#fff'}}>{loading ? 'Saving...' : 'SAVE CHANGES'}</button>
@@ -255,7 +258,7 @@ function App() {
   );
 }
 
-// STYLES
+// STYLES (Keep existing styles below)
 const loginStyle = { maxWidth: '300px', margin: '100px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '10px', textAlign: 'center' }
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }

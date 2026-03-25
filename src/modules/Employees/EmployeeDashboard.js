@@ -20,10 +20,11 @@ export default function EmployeeDashboard({ currentUser }) {
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
-  // --- STRICT ACCESS CONTROL LOGIC ---
-  const isAdmin = currentUser?.role === "Admin";
-  const canManage = ["Admin", "HR Manager", "General Manager"].includes(currentUser?.role);
-  const canSeeSalary = ["Admin", "General Manager", "Finance Manager"].includes(currentUser?.role);
+  // --- STRICT SECURITY CHECK ---
+  const userRole = currentUser?.role || "Guest";
+  const isAdmin = userRole === "Admin";
+  const canManage = ["Admin", "HR Manager", "General Manager"].includes(userRole);
+  const canSeeSalary = ["Admin", "General Manager", "Finance Manager"].includes(userRole);
 
   useEffect(() => { fetchEmployees() }, [])
 
@@ -36,29 +37,20 @@ export default function EmployeeDashboard({ currentUser }) {
   }
 
   const handleDelete = async (empId, name) => {
-    if (!window.confirm(`Permanently delete ${name}?`)) return;
+    if (!isAdmin) return alert("Access Denied: Only Admin can delete.");
+    if (!window.confirm(`Delete ${name}?`)) return;
     setLoading(true);
     try {
       const { error } = await supabase.from('employees').delete().eq('employee_id', empId);
       if (error) throw error;
-      alert("Employee Record Removed.");
       fetchEmployees();
     } catch (err) { alert(err.message); } finally { setLoading(false); }
-  };
-
-  const handleEdit = (emp) => {
-    setIsEditing(true);
-    setEditingDbId(emp.employee_id);
-    setFormData({ ...emp });
-    setShowModal(true);
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     const payload = { ...formData };
-    
-    // Default password logic for new entries
     if (!payload.password) payload.password = formData.phone_number || '123456';
 
     try {
@@ -75,25 +67,16 @@ export default function EmployeeDashboard({ currentUser }) {
     } catch (err) { alert(err.message); } finally { setLoading(false); }
   }
 
-  const printID = (emp) => {
-    const win = window.open('', '_blank');
-    win.document.write(`<html><head><style>
-      @page { size: 86mm 54mm; margin: 0; }
-      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
-      .c { width: 85.6mm; height: 53.98mm; border: 1.5pt solid #003366; border-radius: 3mm; padding: 3mm; box-sizing: border-box; background: #fff; position: relative; }
-      .h { color: #003366; font-size: 11pt; font-weight: bold; border-bottom: 1pt solid #003366; margin-bottom: 2mm; }
-      .id-tag { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
-      .i { font-size: 8.5pt; line-height: 1.3; }
-    </style></head><body>
-      <div class="c"><div class="h">CSSL BANGLADESH</div><div class="id-tag">${emp.employee_id}</div>
-      <div class="i"><b>NAME:</b> ${emp.name}<br/><b>POST:</b> ${emp.designation}<br/><b>BLOOD:</b> ${emp.blood_group || 'N/A'}<br/><b>SITE:</b> ${emp.site_location}</div></div>
-      <script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
-  };
-
   return (
     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
+      
+      {/* DEBUG HEADER: If this says "Guest", your App.jsx is not passing the user correctly */}
+      <div style={{ background: '#eee', padding: '10px', marginBottom: '15px', borderRadius: '5px', fontSize: '12px' }}>
+        <strong>Security System:</strong> Active Role: <span style={{ color: isAdmin ? 'red' : 'blue' }}>{userRole}</span>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h2 style={{ color: '#003366', margin: 0 }}>Employee Management</h2>
+        <h2 style={{ color: '#003366', margin: 0 }}>CSSL Personnel</h2>
         {canManage && (
           <button onClick={() => { setIsEditing(false); setShowModal(true); }} style={addBtn}>+ ENROLL NEW</button>
         )}
@@ -101,185 +84,67 @@ export default function EmployeeDashboard({ currentUser }) {
 
       <input 
         style={searchBar} 
-        placeholder="🔍 Search name, designation, or ID..." 
+        id="main_search"
+        name="main_search"
+        placeholder="🔍 Search name or ID..." 
         onChange={e => setSearchTerm(e.target.value)} 
       />
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={tbl}>
-          <thead>
-            <tr style={{ background: '#003366', color: '#fff' }}>
-              <th style={th}>ID</th>
-              <th style={th}>Full Name</th>
-              <th style={th}>Designation</th>
-              <th style={th}>Actions</th>
+      <table style={tbl}>
+        <thead>
+          <tr style={{ background: '#003366', color: '#fff' }}>
+            <th style={th}>ID</th><th style={th}>Name</th><th style={th}>Post</th><th style={th}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
+            <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
+              <td style={td}><b>{emp.employee_id}</b></td>
+              <td style={td}>{emp.name}</td>
+              <td style={td}>{emp.designation}</td>
+              <td style={td}>
+                <button onClick={() => setSelectedViewUser(emp)} style={actBtn('#17a2b8', '#fff')}>View</button>
+                {canManage && <button onClick={() => { setIsEditing(true); setEditingDbId(emp.employee_id); setFormData({...emp}); setShowModal(true); }} style={actBtn('#ffc107', '#000')}>Edit</button>}
+                {isAdmin && <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actBtn('#dc3545', '#fff')}>Delete</button>}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
-              <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={td}><b>{emp.employee_id}</b></td>
-                <td style={td}>{emp.name}</td>
-                <td style={td}>{emp.designation}</td>
-                <td style={td}>
-                  <button onClick={() => setSelectedViewUser(emp)} style={actBtn('#17a2b8', '#fff')}>View</button>
-                  {/* GATE: Edit only for Managers */}
-                  {canManage && <button onClick={() => handleEdit(emp)} style={actBtn('#ffc107', '#000')}>Edit</button>}
-                  {/* GATE: Delete ONLY for Admin */}
-                  {isAdmin && <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actBtn('#dc3545', '#fff')}>Delete</button>}
-                  <button onClick={() => printID(emp)} style={actBtn('#28a745', '#fff')}>Print</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
 
-      {/* FORM MODAL (ADD/EDIT) */}
-{showModal && (
-  <div style={overlay}>
-    <div style={modalBox}>
-      <h3 style={{ borderBottom: '2px solid #003366', paddingBottom: '10px' }}>
-        {isEditing ? 'Update Employee File' : 'New Enrollment Form'}
-      </h3>
-      <form onSubmit={handleSubmit} style={grid}>
-        
-        {/* Full Name */}
-        <div>
-          <label htmlFor="emp_name" style={lbl}>Name</label>
-          <input 
-            id="emp_name"
-            name="name"
-            autoComplete="name"
-            style={inp} 
-            value={formData.name} 
-            onChange={e => setFormData({...formData, name: e.target.value})} 
-            required 
-          />
-        </div>
+      {showModal && (
+        <div style={overlay}>
+          <div style={modalBox}>
+            <h3>{isEditing ? 'Update Profile' : 'New Employee'}</h3>
+            <form onSubmit={handleSubmit} style={grid}>
+              <div><label htmlFor="f_name" style={lbl}>Name</label><input id="f_name" name="name" style={inp} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+              <div><label htmlFor="f_designation" style={lbl}>Designation</label><input id="f_designation" name="designation" style={inp} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
+              
+              <div><label htmlFor="f_role" style={lbl}>Role</label>
+                <select id="f_role" name="role" style={inp} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                  {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
 
-        {/* Email */}
-        <div>
-          <label htmlFor="emp_email" style={lbl}>Email</label>
-          <input 
-            id="emp_email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            style={inp} 
-            value={formData.email} 
-            onChange={e => setFormData({...formData, email: e.target.value})} 
-          />
-        </div>
+              {/* ADMIN ONLY PASSWORD */}
+              {isAdmin && (
+                <div><label htmlFor="f_pass" style={lbl}>System Password</label><input id="f_pass" name="password" style={inp} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
+              )}
 
-        {/* Designation */}
-        <div>
-          <label htmlFor="emp_designation" style={lbl}>Designation</label>
-          <input 
-            id="emp_designation"
-            name="designation"
-            style={inp} 
-            value={formData.designation} 
-            onChange={e => setFormData({...formData, designation: e.target.value})} 
-          />
-        </div>
+              {canSeeSalary && (
+                <div><label htmlFor="f_salary" style={lbl}>Salary (BDT)</label><input id="f_salary" name="basic_salary" type="number" style={inp} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>
+              )}
 
-        {/* Role Selection */}
-        <div>
-          <label htmlFor="emp_role" style={lbl}>Role</label>
-          <select 
-            id="emp_role"
-            name="role"
-            style={inp} 
-            value={formData.role} 
-            onChange={e => setFormData({...formData, role: e.target.value})}
-          >
-            {roles.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-        
-        {/* ADMIN ONLY PASSWORD EDIT - Fixed with proper ID/Name */}
-        {isAdmin && (
-          <div>
-            <label htmlFor="emp_password" style={lbl}>Login Password</label>
-            <input 
-              id="emp_password"
-              name="password"
-              type="text" 
-              autoComplete="new-password"
-              style={inp} 
-              value={formData.password} 
-              onChange={e => setFormData({...formData, password: e.target.value})} 
-              placeholder="User's login key" 
-            />
-          </div>
-        )}
-
-        {/* Salary Gate */}
-        {canSeeSalary && (
-          <div>
-            <label htmlFor="emp_salary" style={lbl}>Salary (BDT)</label>
-            <input 
-              id="emp_salary"
-              name="basic_salary"
-              type="number" 
-              style={inp} 
-              value={formData.basic_salary} 
-              onChange={e => setFormData({...formData, basic_salary: e.target.value})} 
-            />
-          </div>
-        )}
-
-        {/* Phone Number */}
-        <div>
-          <label htmlFor="emp_phone" style={lbl}>Phone</label>
-          <input 
-            id="emp_phone"
-            name="phone_number"
-            autoComplete="tel"
-            style={inp} 
-            value={formData.phone_number} 
-            onChange={e => setFormData({...formData, phone_number: e.target.value})} 
-          />
-        </div>
-
-        {/* NID Number */}
-        <div>
-          <label htmlFor="emp_nid" style={lbl}>NID</label>
-          <input 
-            id="emp_nid"
-            name="nid_number"
-            style={inp} 
-            value={formData.nid_number} 
-            onChange={e => setFormData({...formData, nid_number: e.target.value})} 
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE RECORD'}</button>
-          <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>CANCEL</button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-      {/* VIEW MODAL */}
-      {selectedViewUser && (
-        <div style={overlay} onClick={() => setSelectedViewUser(null)}>
-          <div style={modalBox} onClick={e => e.stopPropagation()}>
-            <h2 style={{ color: '#003366', borderBottom: '2px solid #003366' }}>ID: {selectedViewUser.employee_id}</h2>
-            <div style={grid}>
-              <p><b>Name:</b> {selectedViewUser.name}</p>
-              <p><b>Post:</b> {selectedViewUser.designation}</p>
-              <p><b>Role:</b> {selectedViewUser.role}</p>
-              <p><b>Phone:</b> {selectedViewUser.phone_number}</p>
-              {isAdmin && <p style={{ color: 'red' }}><b>Password:</b> {selectedViewUser.password}</p>}
-              {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
-              <p><b>Site:</b> {selectedViewUser.site_location}</p>
-              <p><b>Blood:</b> {selectedViewUser.blood_group}</p>
-            </div>
-            <button onClick={() => setSelectedViewUser(null)} style={{...cancelBtn, marginTop: '20px'}}>Close</button>
+              {/* Other Fields */}
+              <div><label htmlFor="f_phone" style={lbl}>Phone</label><input id="f_phone" name="phone_number" style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
+              <div><label htmlFor="f_nid" style={lbl}>NID</label><input id="f_nid" name="nid_number" style={inp} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
+              <div><label htmlFor="f_site" style={lbl}>Site</label><input id="f_site" name="site_location" style={inp} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
+              
+              <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE'}</button>
+                <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>CANCEL</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -287,17 +152,17 @@ export default function EmployeeDashboard({ currentUser }) {
   );
 }
 
-// --- CSS-IN-JS STYLES ---
+// STYLES
 const th = { padding: '12px', textAlign: 'left' };
 const td = { padding: '12px' };
 const tbl = { width: '100%', borderCollapse: 'collapse' };
-const lbl = { fontSize: '11px', fontWeight: 'bold', color: '#003366', textTransform: 'uppercase' };
-const inp = { width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' };
+const lbl = { fontSize: '11px', fontWeight: 'bold', color: '#003366' };
+const inp = { width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' };
 const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' };
 const searchBar = { width: '100%', padding: '12px', marginBottom: '20px', borderRadius: '6px', border: '1px solid #ddd' };
-const addBtn = { background: '#003366', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const saveBtn = { flex: 1, background: '#003366', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const cancelBtn = { flex: 1, background: '#ccc', color: '#333', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const actBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '12px' });
+const addBtn = { background: '#003366', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' };
+const saveBtn = { flex: 1, background: '#003366', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer' };
+const cancelBtn = { flex: 1, background: '#ccc', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer' };
+const actBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' });
 const overlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
-const modalBox = { background: '#fff', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' };
+const modalBox = { background: '#fff', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '700px' };

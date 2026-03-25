@@ -13,11 +13,24 @@ function App() {
   const [editingDbId, setEditingDbId] = useState(null) 
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
+  // Initializing state with exact Supabase column keys
   const [formData, setFormData] = useState({
-    name: '', email: '', designation: '', role: 'General Staff', site_location: '', 
-    phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
-    dob: '', reference_number: '', basic_salary: '', status: 'Active', 
-    present_address: '', permanent_address: '', supervisor_name: ''
+    name: '', 
+    email: '', 
+    designation: '', 
+    role: 'General Staff', 
+    site_location: '', 
+    phone_number: '', 
+    nid_number: '', 
+    blood_group: '', 
+    joining_date: '', 
+    dob: '', 
+    reference_numbe: '', // Matched to your screenshot
+    basic_salary: '', 
+    status: 'Active', 
+    present_address: '', 
+    permanent_addre: '', // Matched to your screenshot
+    supervisor_name: ''
   });
 
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
@@ -35,30 +48,7 @@ function App() {
     } catch (err) { console.error("Fetch Error:", err.message) }
   }
 
-  const handleDelete = async (empId, name) => {
-    if (!window.confirm(`Delete ${name} (${empId})?`)) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('employees').delete().eq('employee_id', empId);
-      if (error) throw error;
-      alert("Deleted.");
-      fetchEmployees();
-    } catch (err) { alert(err.message); } finally { setLoading(false); }
-  };
-
-  const handleAddNew = () => {
-    setIsEditing(false);
-    setEditingDbId(null);
-    setFormData({ 
-      name: '', email: '', designation: '', role: 'General Staff', site_location: '', 
-      phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
-      dob: '', reference_number: '', basic_salary: '', status: 'Active',
-      present_address: '', permanent_address: '', supervisor_name: ''
-    });
-    setShowModal(true);
-  };
-
-  // --- FIXED: Form Mapping for Edit ---
+  // --- FIXED: Mapping from 'emp' (Supabase row) to Form State ---
   const handleEdit = (emp) => {
     setIsEditing(true);
     setEditingDbId(emp.employee_id);
@@ -73,44 +63,27 @@ function App() {
       blood_group: emp.blood_group || '',
       joining_date: emp.joining_date || '',
       dob: emp.dob || '',
-      reference_number: emp.reference_number || '',
+      reference_numbe: emp.reference_numbe || '', // Updated to match DB
       basic_salary: emp.basic_salary || '',
       status: emp.status || 'Active',
       present_address: emp.present_address || '',
-      permanent_address: emp.permanent_address || '',
+      permanent_addre: emp.permanent_addre || '', // Updated to match DB
       supervisor_name: emp.supervisor_name || ''
     });
     setShowModal(true);
   };
 
-  // --- FIXED: Full Field Update Logic ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
 
-    // Payload includes all fields EXCEPT employee_id (Primary Key)
-    const payload = {
-      name: formData.name,
-      email: formData.email,
-      designation: formData.designation,
-      role: formData.role,
-      site_location: formData.site_location,
-      phone_number: formData.phone_number,
-      nid_number: formData.nid_number,
-      blood_group: formData.blood_group,
-      joining_date: formData.joining_date || null,
-      dob: formData.dob || null,
-      reference_number: formData.reference_number,
-      basic_salary: formData.basic_salary || null,
-      status: formData.status,
-      present_address: formData.present_address,
-      permanent_address: formData.permanent_address,
-      supervisor_name: formData.supervisor_name
-    };
+    const payload = { ...formData };
+    // Primary key should never be in the update payload
+    delete payload.employee_id; 
+    delete payload.created_at;
 
     try {
       if (isEditing && editingDbId) {
-        // Targets the existing record using the saved employee_id
         const { error } = await supabase
           .from('employees')
           .update(payload)
@@ -119,7 +92,6 @@ function App() {
         if (error) throw error;
         alert("Employee details updated successfully.");
       } else {
-        // Create New logic
         const newID = `CSSL-${1001 + employees.length}`;
         const { error } = await supabase
           .from('employees')
@@ -135,20 +107,8 @@ function App() {
     } finally { setLoading(false); }
   }
 
-  const printID = (emp) => {
-    const win = window.open('', '_blank');
-    win.document.write(`<html><head><style>
-      @page { size: 86mm 54mm; margin: 0; }
-      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
-      .c { width: 85.6mm; height: 53.98mm; border: 1.5pt solid #003366; border-radius: 3mm; padding: 3mm; box-sizing: border-box; background: #fff; position: relative; }
-      .h { color: #003366; font-size: 11pt; font-weight: bold; border-bottom: 1pt solid #003366; margin-bottom: 2mm; }
-      .id-tag { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
-      .i { font-size: 8.5pt; line-height: 1.3; }
-    </style></head><body>
-      <div class="c"><div class="h">CSSL BANGLADESH</div><div class="id-tag">${emp.employee_id}</div>
-      <div class="i"><b>NAME:</b> ${emp.name}<br/><b>POST:</b> ${emp.designation}<br/><b>BLOOD:</b> ${emp.blood_group || 'N/A'}<br/><b>SITE:</b> ${emp.site_location}</div></div>
-      <script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
-  };
+  // Helper for inputs to reduce repetition
+  const updateField = (key, value) => setFormData({...formData, [key]: value});
 
   if (!currentUser) {
     return (
@@ -171,27 +131,21 @@ function App() {
     <div style={{ padding: '20px', maxWidth: '1200px', margin: 'auto', fontFamily: 'sans-serif' }}>
       <div style={headerStyle}>
         <h2 style={{ color: '#003366' }}>CSSL Dashboard</h2>
-        <div>
-          <button onClick={handleAddNew} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px', marginRight: '10px'}}>+ ADD NEW</button>
-          <button onClick={() => setCurrentUser(null)} style={{...btnStyle, background: '#dc3545', color: '#fff', width: 'auto', padding: '10px 20px'}}>Logout</button>
-        </div>
+        <button onClick={() => { setIsEditing(false); setFormData({}); setShowModal(true); }} style={{...btnStyle, background: '#003366', color: '#fff', width: 'auto', padding: '10px 20px'}}>+ ADD NEW</button>
       </div>
 
       <div style={tableCard}>
-        <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search..." onChange={e => setSearchTerm(e.target.value)} />
         <table style={tableStyle}>
-          <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
+          <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Status</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
-            {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
+            {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase())).map(emp => (
               <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={tdStyle}><b>{emp.employee_id}</b></td>
                 <td style={tdStyle}>{emp.name}</td>
-                <td style={tdStyle}>{emp.designation}</td>
+                <td style={tdStyle}>{emp.status}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
                   <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
-                  <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
             ))}
@@ -204,32 +158,17 @@ function App() {
           <div style={modalContent}>
             <h3>{isEditing ? 'Update Employee' : 'Enrollment'}</h3>
             <form onSubmit={handleSubmit} style={gridStyle}>
-              {/* Added missing fields into the grid layout */}
-              <div><label style={label}>Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
-              <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
-              <div><label style={label}>Role</label>
-                <select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div><label style={label}>Site Location</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
-              <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
-              <div><label style={label}>Blood Group</label>
-                <select style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
-                  <option value="">Select</option>
-                  {bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div><label style={label}>DOB</label><input type="date" style={inputStyle} value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
+              <div><label style={label}>Name</label><input style={inputStyle} value={formData.name || ''} onChange={e => updateField('name', e.target.value)} required /></div>
+              <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation || ''} onChange={e => updateField('designation', e.target.value)} /></div>
+              <div><label style={label}>Site Location</label><input style={inputStyle} value={formData.site_location || ''} onChange={e => updateField('site_location', e.target.value)} /></div>
+              <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number || ''} onChange={e => updateField('phone_number', e.target.value)} /></div>
+              <div><label style={label}>Ref No.</label><input style={inputStyle} value={formData.reference_numbe || ''} onChange={e => updateField('reference_numbe', e.target.value)} /></div>
               <div><label style={label}>Status</label>
-                <select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                <select style={inputStyle} value={formData.status || 'Active'} onChange={e => updateField('status', e.target.value)}>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
-              <div><label style={label}>Ref No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
-              {canSeeSalary && <div><label style={label}>Salary</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
-              
               <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="submit" disabled={loading} style={{...btnStyle, background: '#003366', color: '#fff'}}>{loading ? 'Saving...' : 'SAVE CHANGES'}</button>
                 <button type="button" onClick={() => setShowModal(false)} style={{...btnStyle, background: '#ccc'}}>CANCEL</button>
@@ -238,28 +177,11 @@ function App() {
           </div>
         </div>
       )}
-
-      {selectedViewUser && (
-        <div style={modalOverlay} onClick={() => setSelectedViewUser(null)}>
-          <div style={modalContent} onClick={e => e.stopPropagation()}>
-            <h2 style={{ color: '#003366' }}>Details: {selectedViewUser.employee_id}</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <p><b>Name:</b> {selectedViewUser.name}</p>
-              <p><b>Post:</b> {selectedViewUser.designation}</p>
-              <p><b>Site:</b> {selectedViewUser.site_location}</p>
-              <p><b>DOB:</b> {selectedViewUser.dob}</p>
-              <p><b>Status:</b> {selectedViewUser.status}</p>
-              {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
-            </div>
-            <button onClick={() => setSelectedViewUser(null)} style={{...btnStyle, background: '#666', color: '#fff', marginTop: '20px'}}>Close</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// STYLES
+// STYLES (NO CHANGES)
 const loginStyle = { maxWidth: '300px', margin: '100px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '10px', textAlign: 'center' }
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }

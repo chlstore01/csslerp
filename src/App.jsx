@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-// FIXED PATH: Points to the 'Employees' sub-folder
-import EmployeeDashboard from "./Employees/EmployeeDashboard"; 
+
+// EXACT PATH FIX: Added /modules/ and changed extension to .js
+import EmployeeDashboard from "./modules/Employees/EmployeeDashboard.js"; 
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -13,7 +14,6 @@ export default function App() {
   const handleLogin = async () => {
     setLoginError('');
     try {
-      // 1. Fetch user from Supabase 'employees' table
       const { data, error } = await supabase
         .from('employees')
         .select('*')
@@ -25,10 +25,9 @@ export default function App() {
         return;
       }
 
-      // 2. Check Password (Case-sensitive check)
       if (data.password === loginForm.pass) {
-        console.log("Login Successful as:", data.role);
-        setCurrentUser(data); // This sends the 'role' to the Dashboard
+        console.log("Login Successful. Role:", data.role);
+        setCurrentUser(data); 
       } else {
         setLoginError('Incorrect Password');
       }
@@ -37,7 +36,6 @@ export default function App() {
     }
   };
 
-  // --- LOGIN SCREEN ---
   if (!currentUser) {
     return (
       <div style={loginContainer}>
@@ -48,7 +46,7 @@ export default function App() {
           <label style={lbl}>Employee ID</label>
           <input 
             style={inputStyle} 
-            placeholder="e.g. CSSL-1001" 
+            placeholder="CSSL-1001" 
             onChange={e => setLoginForm({...loginForm, id: e.target.value})} 
           />
           
@@ -66,60 +64,54 @@ export default function App() {
     );
   }
 
-  // --- MAIN APPLICATION SHELL ---
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f7f6', fontFamily: 'sans-serif' }}>
       
-      {/* SIDEBAR NAVIGATION */}
+      {/* SIDEBAR */}
       <div style={sidebarStyle}>
         <div style={{ padding: '20px', borderBottom: '1px solid #34495e' }}>
           <h3 style={{ color: '#fff', margin: 0 }}>CSSL PORTAL</h3>
-          <p style={{ color: '#2ecc71', fontSize: '12px', margin: '5px 0 0 0' }}>● {currentUser.role}</p>
+          <p style={{ color: '#2ecc71', fontSize: '12px', margin: '5px 0 0 0' }}>{currentUser.name}</p>
+          <p style={{ color: '#bdc3c7', fontSize: '11px' }}>{currentUser.role}</p>
         </div>
 
         <nav style={{ marginTop: '20px' }}>
           <div style={navItem(activeModule === 'dashboard')} onClick={() => setActiveModule('dashboard')}>
-            🏠 Dashboard Home
+            🏠 Dashboard
           </div>
           <div style={navItem(activeModule === 'employees')} onClick={() => setActiveModule('employees')}>
-            👥 Employee Directory
+            👥 Employees
           </div>
-          {/* Add future modules here */}
         </nav>
 
-        <button style={logoutBtn} onClick={() => setCurrentUser(null)}>Logout System</button>
+        <button style={logoutBtn} onClick={() => setCurrentUser(null)}>Logout</button>
       </div>
 
-      {/* MAIN CONTENT AREA */}
+      {/* CONTENT */}
       <div style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
-        
-        {/* Module 1: Welcome Dashboard */}
         {activeModule === 'dashboard' && (
           <div style={welcomeCard}>
-            <h1>Welcome back, {currentUser.name}</h1>
-            <p>You are authorized as: <strong>{currentUser.role}</strong></p>
-            <hr style={{ opacity: 0.2 }} />
-            <p style={{ fontSize: '14px', color: '#666' }}>Use the sidebar to manage site staff and company records.</p>
+            <h1>Welcome, {currentUser.name}</h1>
+            <p>Access Level: <strong>{currentUser.role}</strong></p>
           </div>
         )}
 
-        {/* Module 2: Employee Management (The Prop is Passed Here) */}
         {activeModule === 'employees' && (
+          /* Passing the verified user to the dashboard */
           <EmployeeDashboard currentUser={currentUser} />
         )}
-
       </div>
     </div>
   );
 }
 
-// --- CSS-IN-JS STYLES ---
+// STYLES
 const loginContainer = { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#003366' };
-const loginCard = { background: '#fff', padding: '40px', borderRadius: '12px', width: '350px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' };
+const loginCard = { background: '#fff', padding: '40px', borderRadius: '12px', width: '350px' };
 const inputStyle = { width: '100%', padding: '12px', marginTop: '5px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' };
-const lbl = { fontSize: '12px', fontWeight: 'bold', color: '#555', display: 'block' };
+const lbl = { fontSize: '12px', fontWeight: 'bold', color: '#555' };
 const loginBtn = { width: '100%', padding: '12px', background: '#003366', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '25px', fontWeight: 'bold' };
 const sidebarStyle = { width: '260px', background: '#2c3e50', color: '#fff', display: 'flex', flexDirection: 'column' };
-const navItem = (active) => ({ padding: '15px 20px', cursor: 'pointer', background: active ? '#34495e' : 'transparent', borderLeft: active ? '4px solid #3498db' : '4px solid transparent', transition: '0.2s' });
-const logoutBtn = { marginTop: 'auto', padding: '15px', background: '#c0392b', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold' };
+const navItem = (active) => ({ padding: '15px 20px', cursor: 'pointer', background: active ? '#34495e' : 'transparent', borderLeft: active ? '4px solid #3498db' : '4px solid transparent' });
+const logoutBtn = { marginTop: 'auto', padding: '15px', background: '#c0392b', color: '#fff', border: 'none', cursor: 'pointer' };
 const welcomeCard = { background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };

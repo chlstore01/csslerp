@@ -8,9 +8,10 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' })
   
+  // MODAL & EDITING STATES
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingDbId, setEditingDbId] = useState(null)
+  const [editingDbId, setEditingDbId] = useState(null) // This will now strictly store the Uppercase ID
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -25,7 +26,6 @@ function App() {
 
   // PERMISSIONS
   const canModify = currentUser && ["Admin", "General Manager", "HR Manager"].includes(currentUser.role);
-  // Restored: Admin & Finance/Account should see salary
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance Manager"].includes(currentUser.role);
 
   useEffect(() => { fetchEmployees() }, [])
@@ -34,19 +34,19 @@ function App() {
     try {
       const { data, error } = await supabase.from('employees').select('*')
       if (error) throw error;
-      // Sorting by Uppercase ID
-      setEmployees(data ? [...data].sort((a, b) => b.ID - a.ID) : [])
+      // Use Uppercase ID for sorting
+      setEmployees(data ? [...data].sort((a, b) => (b.ID || 0) - (a.ID || 0)) : [])
     } catch (err) { console.error("Sync Error:", err.message) }
   }
 
-  // --- FIXED DELETE (Strict Uppercase ID) ---
+  // --- ACTION: DELETE (Strictly Uppercase ID) ---
   const handleDelete = async (dbId, name) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     setLoading(true);
     try {
       const { error } = await supabase.from('employees').delete().eq('ID', dbId);
       if (error) throw error;
-      alert("Deleted successfully.");
+      alert("Employee deleted successfully.");
       fetchEmployees();
     } catch (err) {
       alert("Delete Failed: " + err.message);
@@ -65,14 +65,14 @@ function App() {
     setShowModal(true);
   };
 
+  // --- ACTION: EDIT (The Red Circle Button) ---
   const handleEdit = (emp) => {
     setIsEditing(true);
-    setEditingDbId(emp.ID); // Locked to Uppercase ID
+    setEditingDbId(emp.ID); // Capture the Uppercase ID
     setFormData({ ...emp });
     setShowModal(true);
   };
 
-  // --- FIXED UPDATE (Strict Uppercase ID) ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -95,15 +95,17 @@ function App() {
     };
 
     try {
-      if (isEditing) {
+      if (isEditing && editingDbId) {
+        // UPDATE EXISTING (Strict Uppercase ID)
         const { error } = await supabase.from('employees').update(payload).eq('ID', editingDbId);
         if (error) throw error;
-        alert("Employee Updated.");
+        alert("Information Updated Successfully.");
       } else {
+        // REGISTER NEW
         const newEntry = { ...payload, employee_id: `CSSL-${1001 + employees.length}`, password: formData.phone_number || '123456' };
         const { error } = await supabase.from('employees').insert([newEntry]);
         if (error) throw error;
-        alert("Employee Registered.");
+        alert("New Employee Registered.");
       }
       setShowModal(false);
       fetchEmployees();
@@ -155,7 +157,7 @@ function App() {
       </div>
 
       <div style={tableCard}>
-        <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search Staff..." onChange={e => setSearchTerm(e.target.value)} />
+        <input style={{...inputStyle, marginBottom: '20px'}} placeholder="🔍 Search Staff Name, ID, or Phone..." onChange={e => setSearchTerm(e.target.value)} />
         <table style={tableStyle}>
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
@@ -176,6 +178,7 @@ function App() {
         </table>
       </div>
 
+      {/* --- POP-UP MODAL: ADD / UPDATE --- */}
       {showModal && (
         <div style={modalOverlay}>
           <div style={modalContent}>
@@ -205,18 +208,17 @@ function App() {
         </div>
       )}
 
+      {/* --- VIEW ONLY MODAL (RESTORED SALARY) --- */}
       {selectedViewUser && (
         <div style={modalOverlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
-            <h2 style={{ color: '#003366' }}>Full Details: {selectedViewUser.employee_id}</h2>
-            <hr/>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <h2 style={{ color: '#003366', borderBottom: '3px solid #003366' }}>Full Details: {selectedViewUser.employee_id}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
               <p><b>Name:</b> {selectedViewUser.name}</p>
               <p><b>Email:</b> {selectedViewUser.email || 'N/A'}</p>
               <p><b>Post:</b> {selectedViewUser.designation}</p>
               <p><b>Phone:</b> {selectedViewUser.phone_number}</p>
               <p><b>Supervisor:</b> {selectedViewUser.supervisor_name}</p>
-              {/* RESTORED: Salary visibility for Admin/Accountants in View Modal */}
               {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
               <p style={{gridColumn:'1/-1'}}><b>Present Address:</b> {selectedViewUser.present_address}</p>
               <p style={{gridColumn:'1/-1'}}><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p>
@@ -240,7 +242,7 @@ const btnStyle = { width: '100%', padding: '12px', border: 'none', borderRadius:
 const tableStyle = { width: '100%', borderCollapse: 'collapse' }
 const thStyle = { padding: '12px', textAlign: 'left' }
 const tdStyle = { padding: '12px' }
-const actionBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold', fontSize: '11px' })
+const actionBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold', fontSize: '11px' })
 const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
 const modalContent = { background: 'white', padding: '30px', borderRadius: '15px', width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }
 

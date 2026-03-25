@@ -8,13 +8,11 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' })
   
-  // MODAL & EDITING STATES
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editingDbId, setEditingDbId] = useState(null)
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
-  // RESTORED & ADDED: Email field included
   const [formData, setFormData] = useState({
     name: '', email: '', designation: '', role: 'General Staff', site_location: '', 
     phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
@@ -25,7 +23,9 @@ function App() {
   const MASTER_ID = "ADMIN", MASTER_KEY = "CSSL_MASTER_2026";
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
 
+  // PERMISSIONS
   const canModify = currentUser && ["Admin", "General Manager", "HR Manager"].includes(currentUser.role);
+  // Restored: Admin & Finance/Account should see salary
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance Manager"].includes(currentUser.role);
 
   useEffect(() => { fetchEmployees() }, [])
@@ -34,15 +34,17 @@ function App() {
     try {
       const { data, error } = await supabase.from('employees').select('*')
       if (error) throw error;
-      setEmployees(data ? [...data].sort((a, b) => (b.ID || b.id) - (a.ID || a.id)) : [])
+      // Sorting by Uppercase ID
+      setEmployees(data ? [...data].sort((a, b) => b.ID - a.ID) : [])
     } catch (err) { console.error("Sync Error:", err.message) }
   }
 
+  // --- FIXED DELETE (Strict Uppercase ID) ---
   const handleDelete = async (dbId, name) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('employees').delete().or(`id.eq.${dbId},ID.eq.${dbId}`);
+      const { error } = await supabase.from('employees').delete().eq('ID', dbId);
       if (error) throw error;
       alert("Deleted successfully.");
       fetchEmployees();
@@ -65,11 +67,12 @@ function App() {
 
   const handleEdit = (emp) => {
     setIsEditing(true);
-    setEditingDbId(emp.ID || emp.id);
+    setEditingDbId(emp.ID); // Locked to Uppercase ID
     setFormData({ ...emp });
     setShowModal(true);
   };
 
+  // --- FIXED UPDATE (Strict Uppercase ID) ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -93,7 +96,7 @@ function App() {
 
     try {
       if (isEditing) {
-        const { error } = await supabase.from('employees').update(payload).or(`id.eq.${editingDbId},ID.eq.${editingDbId}`);
+        const { error } = await supabase.from('employees').update(payload).eq('ID', editingDbId);
         if (error) throw error;
         alert("Employee Updated.");
       } else {
@@ -119,17 +122,9 @@ function App() {
       .id { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
       .i { font-size: 8.5pt; line-height: 1.3; }
     </style></head><body>
-      <div class="c">
-        <div class="h">CSSL BANGLADESH</div><div class="id">${emp.employee_id}</div>
-        <div class="i">
-          <b>NAME:</b> ${emp.name}<br/>
-          <b>POST:</b> ${emp.designation}<br/>
-          <b>BLOOD:</b> ${emp.blood_group || 'N/A'}<br/>
-          <b>SITE:</b> ${emp.site_location}
-        </div>
-      </div>
-      <script>setTimeout(()=>{window.print();window.close();},500);</script>
-    </body></html>`);
+      <div class="c"><div class="h">CSSL BANGLADESH</div><div class="id">${emp.employee_id}</div>
+      <div class="i"><b>NAME:</b> ${emp.name}<br/><b>POST:</b> ${emp.designation}<br/><b>BLOOD:</b> ${emp.blood_group || 'N/A'}<br/><b>SITE:</b> ${emp.site_location}</div></div>
+      <script>setTimeout(()=>{window.print();window.close();},500);</script></body></html>`);
   };
 
   if (!currentUser) {
@@ -165,14 +160,14 @@ function App() {
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
             {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
-              <tr key={emp.ID || emp.id} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={emp.ID} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={tdStyle}><b>{emp.employee_id}</b></td>
                 <td style={tdStyle}>{emp.name}</td>
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
                   <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.ID || emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  <button onClick={() => handleDelete(emp.ID, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -221,6 +216,8 @@ function App() {
               <p><b>Post:</b> {selectedViewUser.designation}</p>
               <p><b>Phone:</b> {selectedViewUser.phone_number}</p>
               <p><b>Supervisor:</b> {selectedViewUser.supervisor_name}</p>
+              {/* RESTORED: Salary visibility for Admin/Accountants in View Modal */}
+              {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
               <p style={{gridColumn:'1/-1'}}><b>Present Address:</b> {selectedViewUser.present_address}</p>
               <p style={{gridColumn:'1/-1'}}><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p>
             </div>

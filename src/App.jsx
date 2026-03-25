@@ -10,18 +10,20 @@ function App() {
   
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingDbId, setEditingDbId] = useState(null) 
+  const [editingDbId, setEditingDbId] = useState(null) // This now stores the employee_id
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
   const [formData, setFormData] = useState({
     name: '', email: '', designation: '', role: 'General Staff', site_location: '', 
     phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
+    dob: '', reference_number: '', // Added missing fields
     basic_salary: '', status: 'Active', employee_id: '',
     present_address: '', permanent_address: '', supervisor_name: ''
   });
 
   const MASTER_ID = "ADMIN", MASTER_KEY = "CSSL_MASTER_2026";
-  const roles = ["Admin", "General Manager", "Finance Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
+  const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
+  const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance Manager"].includes(currentUser.role);
 
@@ -31,25 +33,17 @@ function App() {
     try {
       const { data, error } = await supabase.from('employees').select('*')
       if (error) throw error;
-      // Sort by whatever ID exists (ID or id)
-      setEmployees(data ? [...data].sort((a, b) => (b.ID || b.id || 0) - (a.ID || a.id || 0)) : [])
+      setEmployees(data ? [...data].sort((a, b) => b.employee_id.localeCompare(a.employee_id)) : [])
     } catch (err) { console.error("Sync Error:", err.message) }
   }
 
-  // --- REPAIRED DELETE LOGIC ---
-  const handleDelete = async (dbId, name) => {
-    if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
+  // --- FIXED DELETE (Using employee_id) ---
+  const handleDelete = async (empId, name) => {
+    if (!window.confirm(`Are you sure you want to delete ${name} (${empId})?`)) return;
     setLoading(true);
     try {
-      // We try both uppercase and lowercase to stop the "does not exist" loop
-      const { error: errUpper } = await supabase.from('employees').delete().eq('ID', dbId);
-      
-      if (errUpper) {
-         // If Uppercase failed, try Lowercase
-         const { error: errLower } = await supabase.from('employees').delete().eq('id', dbId);
-         if (errLower) throw new Error("Neither 'ID' nor 'id' columns exist in your table.");
-      }
-
+      const { error } = await supabase.from('employees').delete().eq('employee_id', empId);
+      if (error) throw error;
       alert("Employee deleted successfully.");
       fetchEmployees();
     } catch (err) {
@@ -63,7 +57,7 @@ function App() {
     setFormData({ 
       name: '', email: '', designation: '', role: 'General Staff', site_location: '', 
       phone_number: '', nid_number: '', blood_group: '', joining_date: '', 
-      basic_salary: '', status: 'Active', employee_id: '',
+      dob: '', reference_number: '', basic_salary: '', status: 'Active', employee_id: '',
       present_address: '', permanent_address: '', supervisor_name: ''
     });
     setShowModal(true);
@@ -71,12 +65,12 @@ function App() {
 
   const handleEdit = (emp) => {
     setIsEditing(true);
-    setEditingDbId(emp.ID || emp.id); // Check both
+    setEditingDbId(emp.employee_id);
     setFormData({ ...emp });
     setShowModal(true);
   };
 
-  // --- REPAIRED UPDATE LOGIC ---
+  // --- FIXED UPDATE (Using employee_id) ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -91,6 +85,8 @@ function App() {
       nid_number: formData.nid_number,
       blood_group: formData.blood_group,
       joining_date: formData.joining_date || null,
+      dob: formData.dob || null,
+      reference_number: formData.reference_number,
       basic_salary: formData.basic_salary || null,
       status: formData.status,
       present_address: formData.present_address,
@@ -100,15 +96,12 @@ function App() {
 
     try {
       if (isEditing && editingDbId) {
-        const { error: errUpdate } = await supabase.from('employees').update(payload).eq('ID', editingDbId);
-        if (errUpdate) {
-            const { error: errLower } = await supabase.from('employees').update(payload).eq('id', editingDbId);
-            if (errLower) throw new Error("Update failed on both 'ID' and 'id' columns.");
-        }
-        alert("Updated Successfully.");
+        const { error } = await supabase.from('employees').update(payload).eq('employee_id', editingDbId);
+        if (error) throw error;
+        alert("Information Updated Successfully.");
       } else {
-        const newEntry = { ...payload, employee_id: `CSSL-${1001 + employees.length}`, password: formData.phone_number || '123456' };
-        const { error } = await supabase.from('employees').insert([newEntry]);
+        const newID = `CSSL-${1001 + employees.length}`;
+        const { error } = await supabase.from('employees').insert([{ ...payload, employee_id: newID, password: formData.phone_number || '123456' }]);
         if (error) throw error;
         alert("Registered successfully.");
       }
@@ -167,14 +160,14 @@ function App() {
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
             {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
-              <tr key={emp.ID || emp.id} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={tdStyle}><b>{emp.employee_id}</b></td>
                 <td style={tdStyle}>{emp.name}</td>
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
                   <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.ID || emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -187,23 +180,40 @@ function App() {
         <div style={modalOverlay}>
           <div style={modalContent}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '3px solid #003366', marginBottom: '20px', paddingBottom: '10px' }}>
-              <h3 style={{margin:0}}>{isEditing ? `Update Employee: ${formData.employee_id}` : 'New Employee Enrollment'}</h3>
+              <h3 style={{margin:0}}>{isEditing ? `Update: ${formData.employee_id}` : 'Staff Enrollment'}</h3>
               <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', fontSize: '24px', cursor: 'pointer' }}>×</button>
             </div>
             <form onSubmit={handleSubmit} style={gridStyle}>
               <div><label style={label}>Name</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
               <div><label style={label}>Email</label><input type="email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              <div><label style={label}>Role</label>
+                <select style={inputStyle} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                  {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
               <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
               <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
-              <div><label style={label}>Supervisor</label><input style={inputStyle} value={formData.supervisor_name} onChange={e => setFormData({...formData, supervisor_name: e.target.value})} /></div>
-              <div style={{ gridColumn: '1/-1' }}><label style={label}>Present Address</label><input style={inputStyle} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
-              <div style={{ gridColumn: '1/-1' }}><label style={label}>Permanent Address</label><input style={inputStyle} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
+              <div><label style={label}>DOB</label><input type="date" style={inputStyle} value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
+              <div><label style={label}>Blood Group</label>
+                <select style={inputStyle} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
+                  <option value="">Select</option>
+                  {bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div><label style={label}>Site Location</label><input style={inputStyle} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
+              <div><label style={label}>Reference No.</label><input style={inputStyle} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
+              <div><label style={label}>Status</label>
+                <select style={inputStyle} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
               <div><label style={label}>Joining Date</label><input type="date" style={inputStyle} value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
               {canSeeSalary && <div><label style={label}>Salary</label><input type="number" style={inputStyle} value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
               
               <div style={{ gridColumn: '1/-1', marginTop: '20px' }}>
                 <button type="submit" disabled={loading} style={{...btnStyle, background: isEditing ? '#ffc107' : '#003366', color: isEditing ? '#000' : '#fff'}}>
-                  {loading ? 'Processing...' : (isEditing ? 'UPDATE EXISTING INFORMATION' : 'REGISTER STAFF')}
+                  {loading ? 'Processing...' : (isEditing ? 'UPDATE RECORD' : 'REGISTER STAFF')}
                 </button>
               </div>
             </form>
@@ -214,16 +224,19 @@ function App() {
       {selectedViewUser && (
         <div style={modalOverlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
-            <h2 style={{ color: '#003366', borderBottom: '3px solid #003366' }}>Full Details: {selectedViewUser.employee_id}</h2>
+            <h2 style={{ color: '#003366', borderBottom: '3px solid #003366' }}>Details: {selectedViewUser.employee_id}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
               <p><b>Name:</b> {selectedViewUser.name}</p>
-              <p><b>Email:</b> {selectedViewUser.email || 'N/A'}</p>
+              <p><b>Role:</b> {selectedViewUser.role}</p>
               <p><b>Post:</b> {selectedViewUser.designation}</p>
+              <p><b>Email:</b> {selectedViewUser.email || 'N/A'}</p>
               <p><b>Phone:</b> {selectedViewUser.phone_number}</p>
-              <p><b>Supervisor:</b> {selectedViewUser.supervisor_name}</p>
+              <p><b>DOB:</b> {selectedViewUser.dob || 'N/A'}</p>
+              <p><b>Blood:</b> {selectedViewUser.blood_group}</p>
+              <p><b>Site:</b> {selectedViewUser.site_location}</p>
+              <p><b>Reference:</b> {selectedViewUser.reference_number || 'None'}</p>
+              <p><b>Status:</b> {selectedViewUser.status}</p>
               {canSeeSalary && <p><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
-              <p style={{gridColumn:'1/-1'}}><b>Present Address:</b> {selectedViewUser.present_address}</p>
-              <p style={{gridColumn:'1/-1'}}><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p>
             </div>
             <button onClick={() => setSelectedViewUser(null)} style={{...btnStyle, background: '#666', color: '#fff', marginTop: '20px'}}>Close</button>
           </div>
@@ -233,7 +246,7 @@ function App() {
   );
 }
 
-// STYLES
+// STYLES (NO CHANGE)
 const loginStyle = { maxWidth: '350px', margin: '100px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '15px', textAlign: 'center' }
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }

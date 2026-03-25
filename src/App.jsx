@@ -1,114 +1,125 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
-import EmployeeDashboard from './EmployeeDashboard'
+import { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
+// FIXED PATH: Points to the 'Employees' sub-folder
+import EmployeeDashboard from "./Employees/EmployeeDashboard"; 
 
-function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+export default function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' });
-  const [employees, setEmployees] = useState([]);
+  const [loginError, setLoginError] = useState('');
 
-  // Fetch employees to validate login credentials
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
+  // --- LOGIN LOGIC ---
+  const handleLogin = async () => {
+    setLoginError('');
+    try {
+      // 1. Fetch user from Supabase 'employees' table
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('employee_id', loginForm.id)
+        .single();
 
-  async function fetchEmployees() {
-    const { data } = await supabase.from('employees').select('*');
-    if (data) setEmployees(data);
-  }
-
-  const handleLogin = () => {
-    // Master Admin Bypass
-    if (loginForm.id === "ADMIN" && loginForm.pass === "CSSL_MASTER_2026") {
-      setCurrentUser({ name: "System Admin", role: "Admin", employee_id: "ADMIN" });
-      return;
-    }
-
-    const user = employees.find(
-      (e) => e.employee_id === loginForm.id && e.password === loginForm.pass
-    );
-
-    if (user) {
-      if (user.status === 'Active') {
-        setCurrentUser(user);
-      } else {
-        alert("Account Inactive. Contact HR.");
+      if (error || !data) {
+        setLoginError('Invalid Employee ID');
+        return;
       }
-    } else {
-      alert("Invalid Credentials.");
+
+      // 2. Check Password (Case-sensitive check)
+      if (data.password === loginForm.pass) {
+        console.log("Login Successful as:", data.role);
+        setCurrentUser(data); // This sends the 'role' to the Dashboard
+      } else {
+        setLoginError('Incorrect Password');
+      }
+    } catch (err) {
+      setLoginError('Connection Error');
     }
   };
 
+  // --- LOGIN SCREEN ---
   if (!currentUser) {
     return (
       <div style={loginContainer}>
         <div style={loginCard}>
-          <h2 style={{ color: '#003366', marginBottom: '20px' }}>CSSL ERP SYSTEM</h2>
+          <h2 style={{ color: '#003366', marginBottom: '20px', textAlign: 'center' }}>CSSL ERP SYSTEM</h2>
+          {loginError && <p style={{ color: 'red', fontSize: '13px', textAlign: 'center' }}>{loginError}</p>}
+          
+          <label style={lbl}>Employee ID</label>
           <input 
             style={inputStyle} 
-            placeholder="Employee ID" 
+            placeholder="e.g. CSSL-1001" 
             onChange={e => setLoginForm({...loginForm, id: e.target.value})} 
           />
+          
+          <label style={{...lbl, marginTop: '15px'}}>Password</label>
           <input 
             type="password" 
-            style={{...inputStyle, marginTop: '10px'}} 
-            placeholder="Password" 
+            style={inputStyle} 
+            placeholder="••••••••" 
             onChange={e => setLoginForm({...loginForm, pass: e.target.value})} 
           />
-          <button style={{...loginBtn, marginTop: '20px'}} onClick={handleLogin}>Login</button>
+          
+          <button style={loginBtn} onClick={handleLogin}>Log In</button>
         </div>
       </div>
     );
   }
 
+  // --- MAIN APPLICATION SHELL ---
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f7f6' }}>
-      {/* SIDEBAR */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f7f6', fontFamily: 'sans-serif' }}>
+      
+      {/* SIDEBAR NAVIGATION */}
       <div style={sidebarStyle}>
-        <h3 style={{ color: '#fff', borderBottom: '1px solid #34495e', paddingBottom: '10px' }}>CSSL ERP</h3>
-        <p style={{ color: '#bdc3c7', fontSize: '12px' }}>User: {currentUser.name}</p>
-        <p style={{ color: '#2ecc71', fontSize: '11px', fontWeight: 'bold' }}>{currentUser.role}</p>
-        
-        <nav style={{ marginTop: '30px' }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid #34495e' }}>
+          <h3 style={{ color: '#fff', margin: 0 }}>CSSL PORTAL</h3>
+          <p style={{ color: '#2ecc71', fontSize: '12px', margin: '5px 0 0 0' }}>● {currentUser.role}</p>
+        </div>
+
+        <nav style={{ marginTop: '20px' }}>
           <div style={navItem(activeModule === 'dashboard')} onClick={() => setActiveModule('dashboard')}>
-            🏠 Home
+            🏠 Dashboard Home
           </div>
           <div style={navItem(activeModule === 'employees')} onClick={() => setActiveModule('employees')}>
-            👥 Employees
+            👥 Employee Directory
           </div>
-          {/* Future Modules like Inventory/Attendance go here */}
+          {/* Add future modules here */}
         </nav>
 
-        <button style={logoutBtn} onClick={() => setCurrentUser(null)}>Logout</button>
+        <button style={logoutBtn} onClick={() => setCurrentUser(null)}>Logout System</button>
       </div>
 
-      {/* CONTENT WINDOW */}
-      <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+      {/* MAIN CONTENT AREA */}
+      <div style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
+        
+        {/* Module 1: Welcome Dashboard */}
         {activeModule === 'dashboard' && (
           <div style={welcomeCard}>
-            <h1>Welcome to CSSL Portal</h1>
-            <p>You are logged in as <strong>{currentUser.role}</strong>.</p>
+            <h1>Welcome back, {currentUser.name}</h1>
+            <p>You are authorized as: <strong>{currentUser.role}</strong></p>
+            <hr style={{ opacity: 0.2 }} />
+            <p style={{ fontSize: '14px', color: '#666' }}>Use the sidebar to manage site staff and company records.</p>
           </div>
         )}
 
-       {activeModule === 'employees' && (
-  /* The "currentUser" must be passed here as a prop */
-  <EmployeeDashboard currentUser={currentUser} />
-)}
+        {/* Module 2: Employee Management (The Prop is Passed Here) */}
+        {activeModule === 'employees' && (
+          <EmployeeDashboard currentUser={currentUser} />
+        )}
+
       </div>
     </div>
   );
 }
 
-// --- STYLES ---
+// --- CSS-IN-JS STYLES ---
 const loginContainer = { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#003366' };
-const loginCard = { background: '#fff', padding: '40px', borderRadius: '12px', width: '320px', textAlign: 'center' };
-const inputStyle = { width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ddd', boxSizing: 'border-box' };
-const loginBtn = { width: '100%', padding: '12px', background: '#003366', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const sidebarStyle = { width: '220px', background: '#2c3e50', padding: '20px', display: 'flex', flexDirection: 'column' };
-const navItem = (isActive) => ({ padding: '12px', color: '#fff', cursor: 'pointer', borderRadius: '6px', marginBottom: '5px', background: isActive ? '#34495e' : 'transparent' });
-const logoutBtn = { marginTop: 'auto', padding: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' };
-const welcomeCard = { background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' };
-
-export default App;
+const loginCard = { background: '#fff', padding: '40px', borderRadius: '12px', width: '350px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' };
+const inputStyle = { width: '100%', padding: '12px', marginTop: '5px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' };
+const lbl = { fontSize: '12px', fontWeight: 'bold', color: '#555', display: 'block' };
+const loginBtn = { width: '100%', padding: '12px', background: '#003366', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '25px', fontWeight: 'bold' };
+const sidebarStyle = { width: '260px', background: '#2c3e50', color: '#fff', display: 'flex', flexDirection: 'column' };
+const navItem = (active) => ({ padding: '15px 20px', cursor: 'pointer', background: active ? '#34495e' : 'transparent', borderLeft: active ? '4px solid #3498db' : '4px solid transparent', transition: '0.2s' });
+const logoutBtn = { marginTop: 'auto', padding: '15px', background: '#c0392b', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold' };
+const welcomeCard = { background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };

@@ -92,10 +92,10 @@ function App() {
           </div>
         )}
 
-        {activeModule === 'employees' && (
-          /* We pass the whole currentUser object so EmployeeDashboard knows what to hide/show */
-          <EmployeeDashboard currentUser={currentUser} />
-        )}
+       {activeModule === 'employees' && (
+  /* The "currentUser" must be passed here as a prop */
+  <EmployeeDashboard currentUser={currentUser} />
+)}
       </div>
     </div>
   );

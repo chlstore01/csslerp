@@ -8,10 +8,9 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' })
   
-  // MODAL & EDITING STATES
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingDbId, setEditingDbId] = useState(null) // Stores the primary key 'id'
+  const [editingDbId, setEditingDbId] = useState(null) 
   const [selectedViewUser, setSelectedViewUser] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -22,10 +21,8 @@ function App() {
   });
 
   const MASTER_ID = "ADMIN", MASTER_KEY = "CSSL_MASTER_2026";
-  const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
+  const roles = ["Admin", "General Manager", "Finance Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
 
-  // PERMISSIONS
-  const canModify = currentUser && ["Admin", "General Manager", "HR Manager"].includes(currentUser.role);
   const canSeeSalary = currentUser && ["Admin", "General Manager", "Finance Manager"].includes(currentUser.role);
 
   useEffect(() => { fetchEmployees() }, [])
@@ -34,18 +31,25 @@ function App() {
     try {
       const { data, error } = await supabase.from('employees').select('*')
       if (error) throw error;
-      // Sorting by lowercase 'id' (Standard Supabase default)
-      setEmployees(data ? [...data].sort((a, b) => (b.id || 0) - (a.id || 0)) : [])
+      // Sort by whatever ID exists (ID or id)
+      setEmployees(data ? [...data].sort((a, b) => (b.ID || b.id || 0) - (a.ID || a.id || 0)) : [])
     } catch (err) { console.error("Sync Error:", err.message) }
   }
 
-  // --- ACTION: DELETE (Reverted to lowercase 'id') ---
+  // --- REPAIRED DELETE LOGIC ---
   const handleDelete = async (dbId, name) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('employees').delete().eq('id', dbId);
-      if (error) throw error;
+      // We try both uppercase and lowercase to stop the "does not exist" loop
+      const { error: errUpper } = await supabase.from('employees').delete().eq('ID', dbId);
+      
+      if (errUpper) {
+         // If Uppercase failed, try Lowercase
+         const { error: errLower } = await supabase.from('employees').delete().eq('id', dbId);
+         if (errLower) throw new Error("Neither 'ID' nor 'id' columns exist in your table.");
+      }
+
       alert("Employee deleted successfully.");
       fetchEmployees();
     } catch (err) {
@@ -65,14 +69,14 @@ function App() {
     setShowModal(true);
   };
 
-  // --- ACTION: EDIT ---
   const handleEdit = (emp) => {
     setIsEditing(true);
-    setEditingDbId(emp.id); // Capture the lowercase id
+    setEditingDbId(emp.ID || emp.id); // Check both
     setFormData({ ...emp });
     setShowModal(true);
   };
 
+  // --- REPAIRED UPDATE LOGIC ---
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -96,16 +100,17 @@ function App() {
 
     try {
       if (isEditing && editingDbId) {
-        // UPDATE EXISTING (Lowercase 'id')
-        const { error } = await supabase.from('employees').update(payload).eq('id', editingDbId);
-        if (error) throw error;
-        alert("Information Updated Successfully.");
+        const { error: errUpdate } = await supabase.from('employees').update(payload).eq('ID', editingDbId);
+        if (errUpdate) {
+            const { error: errLower } = await supabase.from('employees').update(payload).eq('id', editingDbId);
+            if (errLower) throw new Error("Update failed on both 'ID' and 'id' columns.");
+        }
+        alert("Updated Successfully.");
       } else {
-        // REGISTER NEW
         const newEntry = { ...payload, employee_id: `CSSL-${1001 + employees.length}`, password: formData.phone_number || '123456' };
         const { error } = await supabase.from('employees').insert([newEntry]);
         if (error) throw error;
-        alert("New Employee Registered.");
+        alert("Registered successfully.");
       }
       setShowModal(false);
       fetchEmployees();
@@ -118,8 +123,8 @@ function App() {
     const win = window.open('', '_blank');
     win.document.write(`<html><head><style>
       @page { size: 86mm 54mm; margin: 0; }
-      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-      .c { width: 85.6mm; height: 53.98mm; border: 1.5pt solid #003366; border-radius: 3mm; padding: 3mm; box-sizing: border-box; font-family: sans-serif; background: #fff; position: relative; }
+      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+      .c { width: 85.6mm; height: 53.98mm; border: 1.5pt solid #003366; border-radius: 3mm; padding: 3mm; box-sizing: border-box; background: #fff; position: relative; }
       .h { color: #003366; font-size: 11pt; font-weight: bold; border-bottom: 1pt solid #003366; margin-bottom: 2mm; }
       .id-tag { position: absolute; top: 3mm; right: 3mm; background: #003366; color: #fff; padding: 0.5mm 1.5mm; border-radius: 1mm; font-size: 8pt; }
       .i { font-size: 8.5pt; line-height: 1.3; }
@@ -162,14 +167,14 @@ function App() {
           <thead><tr style={{ background: '#003366', color: '#fff' }}><th style={thStyle}>ID</th><th style={thStyle}>Name</th><th style={thStyle}>Designation</th><th style={thStyle}>Actions</th></tr></thead>
           <tbody>
             {employees.filter(e => e.name?.toLowerCase().includes(searchTerm.toLowerCase()) || e.employee_id?.includes(searchTerm)).map(emp => (
-              <tr key={emp.id} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={emp.ID || emp.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={tdStyle}><b>{emp.employee_id}</b></td>
                 <td style={tdStyle}>{emp.name}</td>
                 <td style={tdStyle}>{emp.designation}</td>
                 <td style={tdStyle}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actionBtn('#17a2b8', '#fff')}>View</button>
                   <button onClick={() => handleEdit(emp)} style={actionBtn('#ffc107', '#000')}>Edit</button>
-                  <button onClick={() => handleDelete(emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
+                  <button onClick={() => handleDelete(emp.ID || emp.id, emp.name)} style={actionBtn('#dc3545', '#fff')}>Delete</button>
                   <button onClick={() => printID(emp)} style={actionBtn('#28a745', '#fff')}>Print</button>
                 </td>
               </tr>
@@ -190,7 +195,6 @@ function App() {
               <div><label style={label}>Email</label><input type="email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
               <div><label style={label}>Designation</label><input style={inputStyle} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
               <div><label style={label}>Phone</label><input style={inputStyle} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
-              <div><label style={label}>NID</label><input style={inputStyle} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
               <div><label style={label}>Supervisor</label><input style={inputStyle} value={formData.supervisor_name} onChange={e => setFormData({...formData, supervisor_name: e.target.value})} /></div>
               <div style={{ gridColumn: '1/-1' }}><label style={label}>Present Address</label><input style={inputStyle} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
               <div style={{ gridColumn: '1/-1' }}><label style={label}>Permanent Address</label><input style={inputStyle} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>

@@ -78,7 +78,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     
     setLoading(true);
     try {
-      const { error } = await supabase.from('leave_requests').insert([{
+      const leaveData = {
         leave_type: formData.leave_type,
         start_date: formData.start_date,
         end_date: formData.end_date,
@@ -86,10 +86,18 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
         employee_id: currentUser.employee_id,
         status: 'Pending',
         applied_at: new Date().toISOString()
-      }]);
-
-      if (error) throw error;
+      };
       
+      console.log("Submitting leave data:", leaveData);
+
+      const { data, error } = await supabase.from('leave_requests').insert([leaveData]);
+
+      if (error) {
+        console.error("Full error object:", error);
+        throw error;
+      }
+      
+      console.log("Leave inserted successfully:", data);
       alert("Leave application submitted successfully!");
       setShowApplyModal(false);
       setFormData({
@@ -101,7 +109,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
       fetchLeaves();
     } catch (err) {
       console.error("Leave application error:", err);
-      alert("Error submitting leave application: " + (err.message || 'Unknown error'));
+      alert("Error: " + (err.message || 'RLS policy issue - contact admin to disable RLS on leave_requests table'));
     }
     setLoading(false);
   };

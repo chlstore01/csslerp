@@ -148,7 +148,7 @@ export default function App() {
         )}
 
         {/* Employee Module */}
-        {activeModule === 'employees' && permissions.canViewStaffDirectory ? (
+        {activeModule === 'employees' && (permissions.canViewStaffDirectory || permissions.canViewOwnProfile) ? (
           <EmployeeDashboard 
             currentUser={currentUser} 
             onNavigateToModule={(module, employee) => {
@@ -164,7 +164,7 @@ export default function App() {
         ) : null}
 
         {/* HR Modules */}
-        {activeModule === 'attendance' && permissions.canViewAttendance ? (
+        {activeModule === 'attendance' && (permissions.canViewAttendance || permissions.canViewOwnAttendance) ? (
           <Attendance currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'attendance' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
@@ -173,7 +173,7 @@ export default function App() {
           </div>
         ) : null}
 
-        {activeModule === 'leave' && (permissions.canViewLeave || permissions.canApplyLeave) ? (
+        {activeModule === 'leave' && (permissions.canViewLeave || permissions.canApplyLeave || permissions.canViewOwnLeave) ? (
           <LeaveManagement currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'leave' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
@@ -182,7 +182,7 @@ export default function App() {
           </div>
         ) : null}
 
-        {activeModule === 'payroll' && permissions.canViewPayroll ? (
+        {activeModule === 'payroll' && (permissions.canViewPayroll || permissions.canViewOwnPayslip) ? (
           <Payroll currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'payroll' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import useRBAC from '../../hooks/useRBAC';
 
 export default function Payroll({ currentUser, selectedEmployee }) {
   const [employees, setEmployees] = useState([]);
@@ -9,6 +10,9 @@ export default function Payroll({ currentUser, selectedEmployee }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showDeductModal, setShowDeductModal] = useState(false);
   const [activeEmp, setActiveEmp] = useState(selectedEmployee || null);
+
+  // RBAC & Permissions
+  const permissions = useRBAC(currentUser);
 
   // Manual Deduction State
   const [deductions, setDeductions] = useState({
@@ -68,6 +72,18 @@ export default function Payroll({ currentUser, selectedEmployee }) {
     const totalDeductions = Number(deductions.advance) + Number(deductions.tax) + 
                             Number(deductions.fund) + Number(deductions.event) + Number(deductions.misc);
     return emp.grossPay - totalDeductions;
+  };
+
+  // Filter employees based on permissions
+  const getVisibleEmployees = () => {
+    if (permissions.canViewPayroll) {
+      // Admin/Managers can see all employees
+      return employees;
+    } else if (permissions.canViewOwnPayslip) {
+      // Regular employees can only see their own payslip
+      return employees.filter(emp => emp.employee_id === currentUser?.employee_id);
+    }
+    return [];
   };
 
   const generatePayslip = (emp) => {
@@ -137,11 +153,11 @@ export default function Payroll({ currentUser, selectedEmployee }) {
 
       {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading payroll data...</p>}
 
-      {!loading && employees.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No employees found.</p>
+      {!loading && getVisibleEmployees().length === 0 && (
+        <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No payroll records to display.</p>
       )}
 
-      {!loading && employees.length > 0 && (
+      {!loading && getVisibleEmployees().length > 0 && (
         <table style={tbl}>
           <thead>
             <tr style={{ background: '#f4f4f4', borderBottom: '2px solid #003366' }}>
@@ -151,7 +167,7 @@ export default function Payroll({ currentUser, selectedEmployee }) {
             </tr>
           </thead>
           <tbody>
-            {employees.map(emp => (
+            {getVisibleEmployees().map(emp => (
               <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee', background: selectedEmployee && emp.employee_id === selectedEmployee.employee_id ? '#f0f8ff' : 'transparent' }}>
                 <td style={td}><b>{emp.name}</b><br/><small>{emp.employee_id}</small></td>
                 <td style={td}>{emp.grossPay} BDT</td>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import useRBAC from '../../hooks/useRBAC';
 
 export default function Attendance({ currentUser, selectedEmployee }) {
   const [loading, setLoading] = useState(false);
@@ -8,6 +9,7 @@ export default function Attendance({ currentUser, selectedEmployee }) {
   const [distance, setDistance] = useState(null);
   const [isWithinRange, setIsWithinRange] = useState(false);
 
+  const permissions = useRBAC(currentUser);
   const ALLOWED_RADIUS_METERS = 200; // Adjust based on site size
   const targetUser = selectedEmployee || currentUser;
 
@@ -100,8 +102,16 @@ export default function Attendance({ currentUser, selectedEmployee }) {
     <div style={{ padding: '20px', maxWidth: '500px', margin: 'auto' }}>
       {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
       
-      <div style={card}>
-        <h2 style={{ color: '#003366', textAlign: 'center' }}>Site Attendance</h2>
+      {/* Permission Check */}
+      {!permissions.canViewAttendance && targetUser.employee_id !== currentUser.employee_id && (
+        <div style={{ background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '4px', textAlign: 'center', marginBottom: '15px' }}>
+          You do not have permission to view this employee's attendance.
+        </div>
+      )}
+      
+      {(permissions.canViewAttendance || targetUser.employee_id === currentUser.employee_id) && (
+        <div style={card}>
+          <h2 style={{ color: '#003366', textAlign: 'center' }}>Site Attendance</h2>
         {selectedEmployee && <p style={{ textAlign: 'center', fontSize: '12px', color: '#666', fontWeight: 'bold', background: '#f0f8ff', padding: '8px', borderRadius: '4px', marginBottom: '10px' }}>Viewing: {selectedEmployee.name}</p>}
         <p style={{ textAlign: 'center', fontSize: '14px', color: '#666' }}>
           Site: <b>{targetUser.site_location || 'Not Assigned'}</b>
@@ -138,6 +148,7 @@ export default function Attendance({ currentUser, selectedEmployee }) {
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

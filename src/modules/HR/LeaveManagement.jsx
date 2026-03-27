@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import useRBAC from '../../hooks/useRBAC';
 
 export default function LeaveManagement({ currentUser, selectedEmployee }) {
   const [leaves, setLeaves] = useState([]);
@@ -13,6 +14,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     reason: ''
   });
 
+  const permissions = useRBAC(currentUser);
   const isAdmin = ["Admin", "HR Manager"].includes(currentUser.role);
 
   useEffect(() => {
@@ -27,9 +29,15 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
       
       // Filter by selected employee if viewing specific employee
       if (selectedEmployee) {
+        // Check if user has permission to view this employee's leaves
+        if (!permissions.canViewLeave && selectedEmployee.employee_id !== currentUser.employee_id) {
+          setLeaves([]);
+          setLoading(false);
+          return;
+        }
         query = query.eq('employee_id', selectedEmployee.employee_id);
-      } else if (!isAdmin) {
-        // If not Admin and no selected employee, only see own leaves
+      } else if (!permissions.canViewLeave) {
+        // If not allowed to view all leaves, only see own leaves
         query = query.eq('employee_id', currentUser.employee_id);
       }
 

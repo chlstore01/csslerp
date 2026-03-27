@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-export default function Payroll({ currentUser }) {
+export default function Payroll({ currentUser, selectedEmployee }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -118,7 +118,12 @@ export default function Payroll({ currentUser }) {
     <div style={{ padding: '20px', background: '#fff' }}>
       {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
       
-      <h2 style={{ color: '#003366' }}>Payroll & Manual Deductions</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ color: '#003366', margin: 0 }}>Payroll & Manual Deductions</h2>
+          {selectedEmployee && <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0', background: '#f0f8ff', padding: '5px 8px', borderRadius: '4px', display: 'inline-block' }}>Viewing: {selectedEmployee.name}</p>}
+        </div>
+      </div>
       
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
         <select style={inp} value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>

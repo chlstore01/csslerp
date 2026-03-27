@@ -183,7 +183,7 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
       </div>
 
       {/* VIEW MODAL */}
-      {selectedViewUser && (
+      {selectedViewUser && (permissions.canViewStaffDirectory || selectedViewUser.employee_id === currentUser.employee_id) && (
         <div style={overlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <h3 style={{ borderBottom: '2px solid #003366' }}>Profile: {selectedViewUser.employee_id}</h3>
@@ -197,7 +197,7 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
               <p><b>Blood:</b> {selectedViewUser.blood_group}</p>
               <p><b>Supervisor:</b> {selectedViewUser.supervisor_id}</p>
               <p style={{ gridColumn: 'span 2' }}><b>Present Address:</b> {selectedViewUser.present_address}</p>
-              {canSeeSalary && <p style={{ color: '#27ae60' }}><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
+              {(canSeeSalary || selectedViewUser.employee_id === currentUser.employee_id) && <p style={{ color: '#27ae60' }}><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
             </div>
           </div>
         </div>
@@ -236,7 +236,7 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
                   <option value="Terminated">Terminated</option>
                 </select>
               </div>
-              {canSeeSalary && <div><label style={lbl}>Salary (BDT)</label><input style={inp} type="number" value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
+              {(canSeeSalary || editingDbId === currentUser.employee_id) && <div><label style={lbl}>Salary (BDT)</label><input style={inp} type="number" value={formData.basic_salary} onChange={e => setFormData({...formData, basic_salary: e.target.value})} /></div>}
               {isAdmin && <div><label style={lbl}>Initial Password</label><input style={inp} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>}
               
               <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Present Address</label><input style={inp} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>

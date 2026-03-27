@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import RBAC from '../utils/rbac';
+import { RBAC } from '../utils/rbac';
 
 /**
  * Custom Hook for Role-Based Access Control

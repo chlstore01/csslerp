@@ -23,7 +23,6 @@ export default function EmployeeDashboard({ currentUser }) {
   const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
-  // --- STRICT RBAC GATES ---
   const userRole = currentUser?.role || "Guest";
   const isAdmin = userRole === "Admin";
   const canManage = ["Admin", "HR Manager", "General Manager"].includes(userRole);
@@ -35,36 +34,53 @@ export default function EmployeeDashboard({ currentUser }) {
 
   async function fetchEmployees() {
     try {
-      let query = supabase.from('employees').select('*');
-      const { data, error } = await query;
+      const { data, error } = await supabase.from('employees').select('*');
       if (error) throw error;
 
       let filtered = data || [];
-
-      // Privacy Filter: If not Admin/HR/GM, only see self and subordinates
       if (!canManage) {
         filtered = filtered.filter(emp => 
           emp.employee_id === currentUser.employee_id || 
           emp.supervisor_id === currentUser.employee_id
         );
       }
-
-      // Admin Approval Filter: Non-admins don't see 'Pending' staff
       if (!isAdmin) {
         filtered = filtered.filter(emp => emp.approval_status !== 'Pending');
       }
-
       setEmployees(filtered.sort((a, b) => b.employee_id.localeCompare(a.employee_id)));
     } catch (err) { console.error("Fetch Error:", err.message) }
   }
+
+  // --- RESTORED PRINT FUNCTION ---
+  const printID = (emp) => {
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><style>
+      @page { size: 86mm 54mm; margin: 0; }
+      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+      .card { width: 85mm; height: 53mm; border: 2px solid #003366; border-radius: 8px; padding: 15px; box-sizing: border-box; background: #fff; }
+      .header { color: #003366; font-size: 14px; font-weight: bold; border-bottom: 1px solid #003366; margin-bottom: 10px; text-align: center; }
+      .info { font-size: 11px; line-height: 1.5; }
+      .info b { color: #003366; }
+    </style></head><body>
+      <div class="card">
+        <div class="header">CSSL EMPLOYEE ID</div>
+        <div class="info">
+          <b>ID:</b> ${emp.employee_id}<br/>
+          <b>NAME:</b> ${emp.name}<br/>
+          <b>POST:</b> ${emp.designation}<br/>
+          <b>SITE:</b> ${emp.site_location || 'N/A'}<br/>
+          <b>JOINING:</b> ${emp.joining_date || 'N/A'}
+        </div>
+      </div>
+      <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
+    </body></html>`);
+  };
 
   const handlePasswordChange = async () => {
     if (!newPassword) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('employees')
-        .update({ password: newPassword })
-        .eq('employee_id', currentUser.employee_id);
+      const { error } = await supabase.from('employees').update({ password: newPassword }).eq('employee_id', currentUser.employee_id);
       if (error) throw error;
       alert("Password updated successfully!");
       setShowPasswordModal(false);
@@ -85,12 +101,7 @@ export default function EmployeeDashboard({ currentUser }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    
-    // If HR/GM adds, set to Pending. If Admin adds, set to Approved.
-    const payload = { 
-      ...formData, 
-      approval_status: isAdmin ? 'Approved' : 'Pending' 
-    };
+    const payload = { ...formData, approval_status: isAdmin ? 'Approved' : 'Pending' };
 
     try {
       if (isEditing && isAdmin) {
@@ -119,7 +130,7 @@ export default function EmployeeDashboard({ currentUser }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
         <h2 style={{ color: '#003366', margin: 0 }}>Staff Directory</h2>
         {canManage && (
-          <button onClick={() => { setIsEditing(false); setFormData({role: 'General Staff', status: 'Active', approval_status: 'Pending'}); setShowModal(true); }} style={addBtn}>+ New Enrollment</button>
+          <button onClick={() => { setIsEditing(false); setFormData({role: 'General Staff', status: 'Active', approval_status: 'Pending', site_location: '', nid_number: '', joining_date: ''}); setShowModal(true); }} style={addBtn}>+ New Enrollment</button>
         )}
       </div>
 
@@ -155,53 +166,51 @@ export default function EmployeeDashboard({ currentUser }) {
         </table>
       </div>
 
-      {/* VIEW MODAL */}
+      {/* VIEW MODAL - RESTORED FIELDS */}
       {selectedViewUser && (
         <div style={overlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <h3 style={{ borderBottom: '2px solid #003366' }}>Profile: {selectedViewUser.employee_id}</h3>
             <div style={grid}>
               <p><b>Name:</b> {selectedViewUser.name}</p>
+              <p><b>NID:</b> {selectedViewUser.nid_number}</p>
+              <p><b>Site:</b> {selectedViewUser.site_location}</p>
+              <p><b>Joining:</b> {selectedViewUser.joining_date}</p>
               <p><b>Email:</b> {selectedViewUser.email}</p>
               <p><b>DOB:</b> {selectedViewUser.dob}</p>
               <p><b>Blood:</b> {selectedViewUser.blood_group}</p>
-              <p><b>Supervisor ID:</b> {selectedViewUser.supervisor_id}</p>
-              <p><b>Ref No:</b> {selectedViewUser.reference_number}</p>
-              <p><b>Status:</b> {selectedViewUser.status}</p>
-              <p><b>Joining:</b> {selectedViewUser.joining_date}</p>
+              <p><b>Supervisor:</b> {selectedViewUser.supervisor_id}</p>
               <p style={{ gridColumn: 'span 2' }}><b>Present Address:</b> {selectedViewUser.present_address}</p>
-              <p style={{ gridColumn: 'span 2' }}><b>Permanent Address:</b> {selectedViewUser.permanent_address}</p>
               {canSeeSalary && <p style={{ color: '#27ae60' }}><b>Salary:</b> {selectedViewUser.basic_salary} BDT</p>}
             </div>
           </div>
         </div>
       )}
 
-      {/* ENROLLMENT / EDIT MODAL */}
+      {/* ENROLLMENT / EDIT MODAL - RESTORED FIELDS */}
       {showModal && (
         <div style={overlay}>
           <div style={modalBox}>
             <h3 style={{ borderBottom: '2px solid #003366' }}>{isEditing ? 'Admin Edit Mode' : 'Staff Enrollment Form'}</h3>
             <form onSubmit={handleSubmit} style={grid}>
               <div><label style={lbl}>Full Name</label><input style={inp} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
-              <div><label style={lbl}>Email</label><input style={inp} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
               <div><label style={lbl}>Designation</label><input style={inp} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
+              
+              {/* RESTORED FIELDS START */}
+              <div><label style={lbl}>NID Number</label><input style={inp} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
+              <div><label style={lbl}>Site Location</label><input style={inp} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
+              <div><label style={lbl}>Joining Date</label><input style={inp} type="date" value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
+              {/* RESTORED FIELDS END */}
+
               <div><label style={lbl}>Role</label>
                 <select style={inp} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                   {roles.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
               <div><label style={lbl}>Phone</label><input style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
-              <div><label style={lbl}>Supervisor ID (CSSL-XXXX)</label><input style={inp} value={formData.supervisor_id} onChange={e => setFormData({...formData, supervisor_id: e.target.value})} /></div>
-              <div><label style={lbl}>Ref Number</label><input style={inp} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
-              <div><label style={lbl}>Blood Group</label>
-                <select style={inp} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}>
-                  <option value="">Select</option>
-                  {bloodGroups.map(bg => <option key={bg} value={bg}>{bg}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Employment Status</label>
+              <div><label style={lbl}>Supervisor ID</label><input style={inp} value={formData.supervisor_id} onChange={e => setFormData({...formData, supervisor_id: e.target.value})} /></div>
+              
+              <div><label style={lbl}>Status</label>
                 <select style={inp} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                   <option value="Active">Active</option>
                   <option value="On Leave">On Leave</option>
@@ -212,7 +221,6 @@ export default function EmployeeDashboard({ currentUser }) {
               {isAdmin && <div><label style={lbl}>Initial Password</label><input style={inp} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>}
               
               <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Present Address</label><input style={inp} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
-              <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Permanent Address</label><input style={inp} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
 
               <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px' }}>
                 <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE RECORD'}</button>
@@ -240,7 +248,7 @@ export default function EmployeeDashboard({ currentUser }) {
   );
 }
 
-// STYLES (Kept consistent with your UI)
+// STYLES
 const th = { padding: '12px', textAlign: 'left', color: '#003366', fontWeight: 'bold' };
 const td = { padding: '12px', fontSize: '14px' };
 const tbl = { width: '100%', borderCollapse: 'collapse' };

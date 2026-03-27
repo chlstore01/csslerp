@@ -34,7 +34,7 @@ export default function EmployeeDashboard({ currentUser }) {
 
   async function fetchEmployees() {
     try {
-      const { data, error } = await supabase.from('employees').select('*');
+      let { data, error } = await supabase.from('employees').select('*');
       if (error) throw error;
 
       let filtered = data || [];
@@ -51,36 +51,35 @@ export default function EmployeeDashboard({ currentUser }) {
     } catch (err) { console.error("Fetch Error:", err.message) }
   }
 
-  // --- RESTORED PRINT FUNCTION ---
+  // --- PRINT FUNCTION ---
   const printID = (emp) => {
-    const win = window.open('', '_blank');
-    win.document.write(`<html><head><style>
-      @page { size: 86mm 54mm; margin: 0; }
-      body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
-      .card { width: 85mm; height: 53mm; border: 2px solid #003366; border-radius: 8px; padding: 15px; box-sizing: border-box; background: #fff; }
-      .header { color: #003366; font-size: 14px; font-weight: bold; border-bottom: 1px solid #003366; margin-bottom: 10px; text-align: center; }
-      .info { font-size: 11px; line-height: 1.5; }
-      .info b { color: #003366; }
-    </style></head><body>
-      <div class="card">
-        <div class="header">CSSL EMPLOYEE ID</div>
-        <div class="info">
-          <b>ID:</b> ${emp.employee_id}<br/>
-          <b>NAME:</b> ${emp.name}<br/>
-          <b>POST:</b> ${emp.designation}<br/>
-          <b>SITE:</b> ${emp.site_location || 'N/A'}<br/>
-          <b>JOINING:</b> ${emp.joining_date || 'N/A'}
-        </div>
-      </div>
-      <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
-    </body></html>`);
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head><title>Print ID - ${emp.name}</title></head>
+        <body style="font-family: Arial; padding: 20px;">
+          <div style="border: 2px solid #003366; padding: 20px; width: 300px; border-radius: 10px;">
+            <h2 style="color: #003366; margin-top: 0;">CSSL EMPLOYEE ID</h2>
+            <hr/>
+            <p><b>ID:</b> ${emp.employee_id}</p>
+            <p><b>Name:</b> ${emp.name}</p>
+            <p><b>Designation:</b> ${emp.designation}</p>
+            <p><b>Site:</b> ${emp.site_location || 'N/A'}</p>
+            <p><b>Joining:</b> ${emp.joining_date || 'N/A'}</p>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
   };
 
   const handlePasswordChange = async () => {
     if (!newPassword) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('employees').update({ password: newPassword }).eq('employee_id', currentUser.employee_id);
+      const { error } = await supabase.from('employees')
+        .update({ password: newPassword })
+        .eq('employee_id', currentUser.employee_id);
       if (error) throw error;
       alert("Password updated successfully!");
       setShowPasswordModal(false);
@@ -101,7 +100,10 @@ export default function EmployeeDashboard({ currentUser }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    const payload = { ...formData, approval_status: isAdmin ? 'Approved' : 'Pending' };
+    const payload = { 
+      ...formData, 
+      approval_status: isAdmin ? 'Approved' : 'Pending' 
+    };
 
     try {
       if (isEditing && isAdmin) {
@@ -121,7 +123,6 @@ export default function EmployeeDashboard({ currentUser }) {
   return (
     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
       
-      {/* SECURITY STATUS BAR */}
       <div style={{ background: '#003366', color: '#fff', padding: '10px 15px', marginBottom: '20px', borderRadius: '6px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span><strong>CSSL ERP:</strong> {userRole} MODE</span>
         <button onClick={() => setShowPasswordModal(true)} style={actBtn('#f39c12', '#fff')}>🔑 Change My Password</button>
@@ -130,7 +131,7 @@ export default function EmployeeDashboard({ currentUser }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
         <h2 style={{ color: '#003366', margin: 0 }}>Staff Directory</h2>
         {canManage && (
-          <button onClick={() => { setIsEditing(false); setFormData({role: 'General Staff', status: 'Active', approval_status: 'Pending', site_location: '', nid_number: '', joining_date: ''}); setShowModal(true); }} style={addBtn}>+ New Enrollment</button>
+          <button onClick={() => { setIsEditing(false); setFormData({name: '', email: '', designation: '', role: 'General Staff', site_location: '', phone_number: '', nid_number: '', blood_group: '', joining_date: '', dob: '', reference_number: '', basic_salary: '', status: 'Active', present_address: '', permanent_address: '', supervisor_id: '', password: '', approval_status: 'Pending'}); setShowModal(true); }} style={addBtn}>+ New Enrollment</button>
         )}
       </div>
 
@@ -166,18 +167,18 @@ export default function EmployeeDashboard({ currentUser }) {
         </table>
       </div>
 
-      {/* VIEW MODAL - RESTORED FIELDS */}
+      {/* VIEW MODAL */}
       {selectedViewUser && (
         <div style={overlay} onClick={() => setSelectedViewUser(null)}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <h3 style={{ borderBottom: '2px solid #003366' }}>Profile: {selectedViewUser.employee_id}</h3>
             <div style={grid}>
               <p><b>Name:</b> {selectedViewUser.name}</p>
-              <p><b>NID:</b> {selectedViewUser.nid_number}</p>
-              <p><b>Site:</b> {selectedViewUser.site_location}</p>
-              <p><b>Joining:</b> {selectedViewUser.joining_date}</p>
+              <p><b>NID:</b> {selectedViewUser.nid_number || 'N/A'}</p>
+              <p><b>Designation:</b> {selectedViewUser.designation}</p>
+              <p><b>Site:</b> {selectedViewUser.site_location || 'N/A'}</p>
+              <p><b>Joining Date:</b> {selectedViewUser.joining_date || 'N/A'}</p>
               <p><b>Email:</b> {selectedViewUser.email}</p>
-              <p><b>DOB:</b> {selectedViewUser.dob}</p>
               <p><b>Blood:</b> {selectedViewUser.blood_group}</p>
               <p><b>Supervisor:</b> {selectedViewUser.supervisor_id}</p>
               <p style={{ gridColumn: 'span 2' }}><b>Present Address:</b> {selectedViewUser.present_address}</p>
@@ -187,7 +188,7 @@ export default function EmployeeDashboard({ currentUser }) {
         </div>
       )}
 
-      {/* ENROLLMENT / EDIT MODAL - RESTORED FIELDS */}
+      {/* ENROLLMENT / EDIT MODAL */}
       {showModal && (
         <div style={overlay}>
           <div style={modalBox}>
@@ -196,17 +197,17 @@ export default function EmployeeDashboard({ currentUser }) {
               <div><label style={lbl}>Full Name</label><input style={inp} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
               <div><label style={lbl}>Designation</label><input style={inp} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
               
-              {/* RESTORED FIELDS START */}
+              {/* RESTORED FIELDS */}
               <div><label style={lbl}>NID Number</label><input style={inp} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
               <div><label style={lbl}>Site Location</label><input style={inp} value={formData.site_location} onChange={e => setFormData({...formData, site_location: e.target.value})} /></div>
               <div><label style={lbl}>Joining Date</label><input style={inp} type="date" value={formData.joining_date} onChange={e => setFormData({...formData, joining_date: e.target.value})} /></div>
-              {/* RESTORED FIELDS END */}
-
+              
               <div><label style={lbl}>Role</label>
                 <select style={inp} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                   {roles.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+              <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
               <div><label style={lbl}>Phone</label><input style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
               <div><label style={lbl}>Supervisor ID</label><input style={inp} value={formData.supervisor_id} onChange={e => setFormData({...formData, supervisor_id: e.target.value})} /></div>
               

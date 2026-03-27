@@ -23,7 +23,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     setLoading(true);
     setError(null);
     try {
-      let query = supabase.from('leave_requests').select(`*, employees(name, designation)`);
+      let query = supabase.from('leave_requests').select('*');
       
       // Filter by selected employee if viewing specific employee
       if (selectedEmployee) {
@@ -35,7 +35,22 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
 
       const { data, error: err } = await query.order('applied_at', { ascending: false });
       if (err) throw err;
-      setLeaves(data || []);
+
+      // Fetch employee names for display
+      const { data: empData } = await supabase.from('employees').select('employee_id, name, designation');
+      const empMap = {};
+      empData?.forEach(emp => {
+        empMap[emp.employee_id] = emp;
+      });
+
+      // Enrich leaves with employee data
+      const enrichedLeaves = (data || []).map(leave => ({
+        ...leave,
+        employee_name: empMap[leave.employee_id]?.name || leave.employee_id,
+        designation: empMap[leave.employee_id]?.designation || 'N/A'
+      }));
+
+      setLeaves(enrichedLeaves);
     } catch (err) {
       console.error("Leave fetch error:", err.message);
       setError(err.message);
@@ -105,7 +120,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
             {leaves.map(lv => (
               <tr key={lv.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={td}>
-                  <b>{lv.employees?.name}</b><br/>
+                  <b>{lv.employee_name}</b><br/>
                   <small>{lv.employee_id}</small>
                 </td>
                 <td style={td}>{lv.leave_type}</td>

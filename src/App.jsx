@@ -133,13 +133,14 @@ export default function App() {
         
         {/* Welcome Screen */}
         {activeModule === 'dashboard' && (
-          <div style={welcomeCard}>
-            <h1 style={{ color: '#003366' }}>Welcome back, {currentUser.name}</h1>
-            <p>Your current access level is: <strong>{currentUser.role}</strong></p>
-            <hr style={{ opacity: 0.1, margin: '20px 0' }} />
-            <p style={{ fontSize: '14px', color: '#666' }}>Select a module from the sidebar to begin.</p>
-          </div>
-        )}
+  <div style={welcomeCard}>
+    {/* Font size adjusted to 1.5rem (approx 24px) for a cleaner look */}
+    <h1 style={{ color: '#003366', fontSize: '1.5rem', marginBottom: '10px' }}>
+      Welcome back, {currentUser.name}
+    </h1>
+    <p style={{ fontSize: '0.9rem' }}>Access Level: <strong>{currentUser.role}</strong></p>
+  </div>
+)}
 
         {/* Employee Module: The Prop 'currentUser' is passed here for RBAC */}
         {activeModule === 'employees' && (

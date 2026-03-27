@@ -15,6 +15,9 @@ export default function App() {
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' });
   const [loginError, setLoginError] = useState('');
 
+  // --- RBAC Hook ---
+  const permissions = useRBAC(currentUser);
+
   // --- LOGIN LOGIC ---
   const handleLogin = async () => {
     setLoginError('');
@@ -87,8 +90,6 @@ export default function App() {
   }
 
   // --- MAIN APP SHELL ---
-  const permissions = useRBAC(currentUser);
-
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f7f6', fontFamily: 'sans-serif' }}>
       

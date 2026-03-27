@@ -77,16 +77,19 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     }
     
     setLoading(true);
-    const { error } = await supabase.from('leave_requests').insert([{
-      leave_type: formData.leave_type,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      reason: formData.reason,
-      employee_id: currentUser.employee_id,
-      status: 'Pending'
-    }]);
+    try {
+      const { error } = await supabase.from('leave_requests').insert([{
+        leave_type: formData.leave_type,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        reason: formData.reason,
+        employee_id: currentUser.employee_id,
+        status: 'Pending',
+        applied_at: new Date().toISOString()
+      }]);
 
-    if (!error) {
+      if (error) throw error;
+      
       alert("Leave application submitted successfully!");
       setShowApplyModal(false);
       setFormData({
@@ -96,8 +99,9 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
         reason: ''
       });
       fetchLeaves();
-    } else {
-      alert("Error submitting leave application: " + error.message);
+    } catch (err) {
+      console.error("Leave application error:", err);
+      alert("Error submitting leave application: " + (err.message || 'Unknown error'));
     }
     setLoading(false);
   };

@@ -16,7 +16,6 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
 
   const permissions = useRBAC(currentUser);
   const isAdmin = ["Admin"].includes(currentUser.role);
-  const isSupervisor = ["Supervisor"].includes(currentUser.role);
 
   useEffect(() => {
     fetchLeaves();
@@ -26,37 +25,47 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     setLoading(true);
     setError(null);
     try {
-      let query = supabase.from('leave_requests').select('*');
+      // Fetch all leaves
+      const { data: allLeaves, error: leavesErr } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .order('applied_at', { ascending: false });
       
-      // Determine which employee's leaves to fetch
-      let targetEmployeeId = currentUser.employee_id;
-      
-      if (selectedEmployee) {
-        // Viewing specific employee
-        targetEmployeeId = selectedEmployee.employee_id;
-        // Only allow if user has broad permission OR viewing their own leaves
-        if (!permissions.canViewLeave && selectedEmployee.employee_id !== currentUser.employee_id) {
-          setLeaves([]);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Fetch leaves for target employee
-      query = query.eq('employee_id', targetEmployeeId);
+      if (leavesErr) throw leavesErr;
 
-      const { data, error: err } = await query.order('applied_at', { ascending: false });
-      if (err) throw err;
+      // Fetch all employees with their supervisor_id
+      const { data: empData, error: empErr } = await supabase
+        .from('employees')
+        .select('employee_id, name, designation, supervisor_id');
+      
+      if (empErr) throw empErr;
 
-      // Fetch employee names for display
-      const { data: empData } = await supabase.from('employees').select('employee_id, name, designation');
       const empMap = {};
       empData?.forEach(emp => {
         empMap[emp.employee_id] = emp;
       });
 
+      // Filter leaves based on user's role
+      let filteredLeaves = allLeaves || [];
+
+      if (!isAdmin) {
+        // For non-admin users, filter based on their role:
+        // - Show their own leaves
+        // - If they're a supervisor, show leaves of their subordinates
+        filteredLeaves = filteredLeaves.filter(leave => {
+          // Show own leaves
+          if (leave.employee_id === currentUser.employee_id) return true;
+          
+          // Show leaves of employees they supervise
+          const employee = empMap[leave.employee_id];
+          if (employee && employee.supervisor_id === currentUser.employee_id) return true;
+          
+          return false;
+        });
+      }
+
       // Enrich leaves with employee data
-      const enrichedLeaves = (data || []).map(leave => ({
+      const enrichedLeaves = filteredLeaves.map(leave => ({
         ...leave,
         employee_name: empMap[leave.employee_id]?.name || leave.employee_id,
         designation: empMap[leave.employee_id]?.designation || 'N/A'
@@ -79,12 +88,22 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     
     setLoading(true);
     try {
+      // Fetch current employee's supervisor_id
+      const { data: empData, error: empErr } = await supabase
+        .from('employees')
+        .select('supervisor_id')
+        .eq('employee_id', currentUser.employee_id)
+        .single();
+      
+      if (empErr) throw new Error("Could not fetch employee supervisor info");
+
       const leaveData = {
         leave_type: formData.leave_type,
         start_date: formData.start_date,
         end_date: formData.end_date,
         reason: formData.reason,
         employee_id: currentUser.employee_id,
+        supervisor_id: empData?.supervisor_id || null,
         status: 'Pending',
         applied_at: new Date().toISOString()
       };
@@ -120,12 +139,12 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
       .from('leave_requests')
       .update({ 
         status: newStatus,
-        ...(isSupervisor ? { supervisor_recommendation: newStatus, recommended_by: currentUser.employee_id } : { approved_by: currentUser.employee_id })
+        ...(isAdmin ? { approved_by: currentUser.employee_id } : { recommended_by: currentUser.employee_id })
       })
       .eq('id', id);
 
     if (!error) {
-      const action = isSupervisor ? "Recommendation submitted" : `Leave ${newStatus}`;
+      const action = isAdmin ? `Leave ${newStatus}` : "Recommendation submitted";
       alert(action);
       fetchLeaves();
     }
@@ -167,7 +186,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                   <th style={th}>Type</th>
                   <th style={th}>Duration</th>
                   <th style={th}>Status</th>
-                  {isSupervisor && <th style={th}>Supervisor Action</th>}
+                  {!isAdmin && <th style={th}>Supervisor Action</th>}
                   {isAdmin && <th style={th}>Admin Action</th>}
                 </tr>
               </thead>
@@ -184,7 +203,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                       <span style={statusBadge(lv.status)}>{lv.status}</span>
                     </td>
                     {/* Supervisor Recommendation Stage */}
-                    {isSupervisor && (
+                    {!isAdmin && (
                       <td style={td}>
                         {lv.status === 'Pending' && (
                           <>

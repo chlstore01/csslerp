@@ -106,25 +106,25 @@ export default function App() {
             🏠 Dashboard Home
           </div>
           
-          {permissions.canViewStaffDirectory && (
+          {(permissions.canViewStaffDirectory || permissions.canViewOwnProfile) && (
             <div style={navItem(activeModule === 'employees')} onClick={() => setActiveModule('employees')}>
               👥 Staff Directory
             </div>
           )}
           
-          {permissions.canViewAttendance && (
+          {(permissions.canViewAttendance || permissions.canViewOwnAttendance) && (
             <div style={navItem(activeModule === 'attendance')} onClick={() => setActiveModule('attendance')}>
               📋 Attendance
             </div>
           )}
           
-          {(permissions.canViewLeave || permissions.canApplyLeave) && (
+          {(permissions.canViewLeave || permissions.canApplyLeave || permissions.canViewOwnLeave) && (
             <div style={navItem(activeModule === 'leave')} onClick={() => setActiveModule('leave')}>
               🏖️ Leave Management
             </div>
           )}
           
-          {permissions.canViewPayroll && (
+          {(permissions.canViewPayroll || permissions.canViewOwnPayslip) && (
             <div style={navItem(activeModule === 'payroll')} onClick={() => setActiveModule('payroll')}>
               💰 Payroll
             </div>

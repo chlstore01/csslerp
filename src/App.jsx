@@ -13,6 +13,43 @@ export default function App() {
   // --- LOGIN LOGIC ---
   const handleLogin = async () => {
     setLoginError('');
+    // --- 1. THE MASTER KEY (Hardcoded Admin) ---
+    // This allows you to login without needing a row in the Supabase table.
+    if (loginForm.id === 'ADMIN' && loginForm.pass === 'CSSL_MASTER_2026') {
+      const adminUser = {
+        employee_id: 'ADMIN',
+        name: 'M Arman (MD)',
+        role: 'Admin', // This triggers the Full Access in the Dashboard
+        designation: 'Managing Director'
+      };
+      console.log("Master Admin Login Successful");
+      setCurrentUser(adminUser);
+      return; // Stop here, don't check the database
+    }
+
+    // --- 2. STANDARD DATABASE LOGIN ---
+    // If it's not the Master Admin, check the Supabase table for staff.
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('employee_id', loginForm.id)
+        .single();
+
+      if (error || !data) {
+        setLoginError('Invalid Employee ID');
+        return;
+      }
+
+      if (data.password === loginForm.pass) {
+        setCurrentUser(data);
+      } else {
+        setLoginError('Incorrect Password');
+      }
+    } catch (err) {
+      setLoginError('Connection Error');
+    }
+  ;
     try {
       // Fetch user from Supabase 'employees' table
       const { data, error } = await supabase

@@ -196,6 +196,8 @@ export default function EmployeeDashboard({ currentUser }) {
             <form onSubmit={handleSubmit} style={grid}>
               <div><label style={lbl}>Full Name</label><input style={inp} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
               <div><label style={lbl}>Designation</label><input style={inp} value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} /></div>
+              <div><label style={lbl}>Email</label><input style={inp} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              <div><label style={lbl}>Phone</label><input style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
               
               {/* RESTORED FIELDS */}
               <div><label style={lbl}>NID Number</label><input style={inp} value={formData.nid_number} onChange={e => setFormData({...formData, nid_number: e.target.value})} /></div>
@@ -208,8 +210,9 @@ export default function EmployeeDashboard({ currentUser }) {
                 </select>
               </div>
               <div><label style={lbl}>Date of Birth</label><input style={inp} type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} /></div>
-              <div><label style={lbl}>Phone</label><input style={inp} value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} /></div>
+              <div><label style={lbl}>Blood Group</label><select style={inp} value={formData.blood_group} onChange={e => setFormData({...formData, blood_group: e.target.value})}><option value="">Select</option>{bloodGroups.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
               <div><label style={lbl}>Supervisor ID</label><input style={inp} value={formData.supervisor_id} onChange={e => setFormData({...formData, supervisor_id: e.target.value})} /></div>
+              <div><label style={lbl}>Reference No</label><input style={inp} value={formData.reference_number} onChange={e => setFormData({...formData, reference_number: e.target.value})} /></div>
               
               <div><label style={lbl}>Status</label>
                 <select style={inp} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
@@ -222,6 +225,7 @@ export default function EmployeeDashboard({ currentUser }) {
               {isAdmin && <div><label style={lbl}>Initial Password</label><input style={inp} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>}
               
               <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Present Address</label><input style={inp} value={formData.present_address} onChange={e => setFormData({...formData, present_address: e.target.value})} /></div>
+              <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Permanent Address</label><input style={inp} value={formData.permanent_address} onChange={e => setFormData({...formData, permanent_address: e.target.value})} /></div>
 
               <div style={{ gridColumn: '1/-1', display: 'flex', gap: '10px' }}>
                 <button type="submit" style={saveBtn}>{loading ? 'Saving...' : 'SAVE RECORD'}</button>

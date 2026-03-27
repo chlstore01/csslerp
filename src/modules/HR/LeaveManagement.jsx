@@ -99,57 +99,69 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     <div style={{ padding: '20px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
       {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ color: '#003366', margin: 0 }}>Leave Management</h2>
-          {selectedEmployee && <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0', background: '#f0f8ff', padding: '5px 8px', borderRadius: '4px', display: 'inline-block' }}>Viewing: {selectedEmployee.name}</p>}
+      {/* Permission Check - Show message only if no permission at all */}
+      {!permissions.canViewLeave && !permissions.canApplyLeave && !permissions.canViewOwnLeave && (
+        <div style={{ background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '4px', textAlign: 'center', marginBottom: '15px' }}>
+          {permissions.getAccessDeniedMessage()}
         </div>
-        {!selectedEmployee && <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>}
-      </div>
-
-      {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading...</p>}
-
-      {!loading && leaves.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No leave requests found.</p>
       )}
+      
+      {/* Show content if authorized */}
+      {(permissions.canViewLeave || permissions.canApplyLeave || permissions.canViewOwnLeave) && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ color: '#003366', margin: 0 }}>Leave Management</h2>
+              {selectedEmployee && <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0', background: '#f0f8ff', padding: '5px 8px', borderRadius: '4px', display: 'inline-block' }}>Viewing: {selectedEmployee.name}</p>}
+            </div>
+            {!selectedEmployee && <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>}
+          </div>
 
-      {!loading && leaves.length > 0 && (
-        <table style={tbl}>
-          <thead>
-            <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #003366' }}>
-              <th style={th}>Employee</th>
-              <th style={th}>Type</th>
-              <th style={th}>Duration</th>
-              <th style={th}>Status</th>
-              {isAdmin && <th style={th}>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {leaves.map(lv => (
-              <tr key={lv.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={td}>
-                  <b>{lv.employee_name}</b><br/>
-                  <small>{lv.employee_id}</small>
-                </td>
-                <td style={td}>{lv.leave_type}</td>
-                <td style={td}>{lv.start_date} to {lv.end_date}</td>
-                <td style={td}>
-                  <span style={statusBadge(lv.status)}>{lv.status}</span>
-                </td>
-                {isAdmin && (
-                  <td style={td}>
-                    {lv.status === 'Pending' && (
-                      <>
-                        <button onClick={() => handleStatusUpdate(lv.id, 'Approved')} style={actBtn('#28a745')}>Approve</button>
-                        <button onClick={() => handleStatusUpdate(lv.id, 'Rejected')} style={actBtn('#dc3545')}>Reject</button>
-                      </>
+          {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading...</p>}
+
+          {!loading && leaves.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No leave requests found.</p>
+          )}
+
+          {!loading && leaves.length > 0 && (
+            <table style={tbl}>
+              <thead>
+                <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #003366' }}>
+                  <th style={th}>Employee</th>
+                  <th style={th}>Type</th>
+                  <th style={th}>Duration</th>
+                  <th style={th}>Status</th>
+                  {isAdmin && <th style={th}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {leaves.map(lv => (
+                  <tr key={lv.id} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={td}>
+                      <b>{lv.employee_name}</b><br/>
+                      <small>{lv.employee_id}</small>
+                    </td>
+                    <td style={td}>{lv.leave_type}</td>
+                    <td style={td}>{lv.start_date} to {lv.end_date}</td>
+                    <td style={td}>
+                      <span style={statusBadge(lv.status)}>{lv.status}</span>
+                    </td>
+                    {isAdmin && (
+                      <td style={td}>
+                        {lv.status === 'Pending' && (
+                          <>
+                            <button onClick={() => handleStatusUpdate(lv.id, 'Approved')} style={actBtn('#28a745')}>Approve</button>
+                            <button onClick={() => handleStatusUpdate(lv.id, 'Rejected')} style={actBtn('#dc3545')}>Reject</button>
+                          </>
+                        )}
+                      </td>
                     )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
 
       {/* APPLICATION MODAL */}

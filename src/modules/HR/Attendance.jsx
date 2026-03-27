@@ -102,14 +102,15 @@ export default function Attendance({ currentUser, selectedEmployee }) {
     <div style={{ padding: '20px', maxWidth: '500px', margin: 'auto' }}>
       {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
       
-      {/* Permission Check */}
-      {!permissions.canViewAttendance && targetUser.employee_id !== currentUser.employee_id && (
+      {/* Permission Check - Deny access only if viewing someone else's data without permission */}
+      {!permissions.canViewAttendance && !permissions.canViewOwnAttendance && targetUser.employee_id !== currentUser.employee_id && (
         <div style={{ background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '4px', textAlign: 'center', marginBottom: '15px' }}>
-          You do not have permission to view this employee's attendance.
+          {permissions.getAccessDeniedMessage()}
         </div>
       )}
       
-      {(permissions.canViewAttendance || targetUser.employee_id === currentUser.employee_id) && (
+      {/* Show content if authorized to view broad attendance OR viewing own attendance */}
+      {(permissions.canViewAttendance || permissions.canViewOwnAttendance || targetUser.employee_id === currentUser.employee_id) && (
         <div style={card}>
           <h2 style={{ color: '#003366', textAlign: 'center' }}>Site Attendance</h2>
         {selectedEmployee && <p style={{ textAlign: 'center', fontSize: '12px', color: '#666', fontWeight: 'bold', background: '#f0f8ff', padding: '8px', borderRadius: '4px', marginBottom: '10px' }}>Viewing: {selectedEmployee.name}</p>}

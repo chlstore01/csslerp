@@ -54,18 +54,22 @@ export default function EmployeeDashboard({ currentUser }) {
   // --- PRINT FUNCTION ---
   const printID = (emp) => {
     const printWindow = window.open('', '_blank');
+    const logoUrl = window.location.origin + '/cssl-logo.jpg';
     printWindow.document.write(`
       <html>
         <head><title>Print ID - ${emp.name}</title></head>
-        <body style="font-family: Arial; padding: 20px;">
-          <div style="border: 2px solid #003366; padding: 20px; width: 300px; border-radius: 10px;">
-            <h2 style="color: #003366; margin-top: 0;">CSSL EMPLOYEE ID</h2>
-            <hr/>
-            <p><b>ID:</b> ${emp.employee_id}</p>
-            <p><b>Name:</b> ${emp.name}</p>
-            <p><b>Designation:</b> ${emp.designation}</p>
-            <p><b>Site:</b> ${emp.site_location || 'N/A'}</p>
-            <p><b>Joining:</b> ${emp.joining_date || 'N/A'}</p>
+        <body style="font-family: Arial; padding: 20px; margin: 0;">
+          <div style="border: 2px solid #003366; padding: 20px; width: 300px; border-radius: 10px; text-align: center;">
+            <div style="margin-bottom: 15px;">
+              <img src="${logoUrl}" alt="Company Logo" style="height: 60px; width: auto; border-radius: 5px;"/>
+            </div>
+            <h2 style="color: #003366; margin: 5px 0; font-size: 16px;">CSSL EMPLOYEE ID</h2>
+            <hr style="border: 1px solid #003366; margin: 10px 0;"/>
+            <p style="margin: 8px 0;"><b>ID:</b> ${emp.employee_id}</p>
+            <p style="margin: 8px 0;"><b>Name:</b> ${emp.name}</p>
+            <p style="margin: 8px 0;"><b>Designation:</b> ${emp.designation}</p>
+            <p style="margin: 8px 0;"><b>Site:</b> ${emp.site_location || 'N/A'}</p>
+            <p style="margin: 8px 0;"><b>Joining:</b> ${emp.joining_date || 'N/A'}</p>
           </div>
           <script>window.onload = function() { window.print(); window.close(); }</script>
         </body>

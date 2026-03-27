@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from "../../supabaseClient";
+import useRBAC from "../../hooks/useRBAC";
 
-export default function EmployeeDashboard({ currentUser, onNavigateToModule, rbac }) {
+export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
+  const permissions = useRBAC(currentUser);
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -24,10 +26,10 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule, rba
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
   const userRole = currentUser?.role || "Guest";
-  const isAdmin = userRole === "Admin";
-  const canManage = rbac?.canEditEmployee(userRole) || false;
-  const canDelete = rbac?.canDeleteEmployee(userRole) || false;
-  const canSeeSalary = ["Admin", "General Manager", "Finance Manager"].includes(userRole);
+  const isAdmin = permissions.role === "Admin";
+  const canManage = permissions.canEditEmployee;
+  const canDelete = permissions.canDeleteEmployee;
+  const canSeeSalary = permissions.canViewEmployeeSalary;
 
   useEffect(() => { 
     fetchEmployees();
@@ -167,10 +169,10 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule, rba
                   <button onClick={() => printID(emp)} style={actBtn('#28a745', '#fff')}>Print ID</button>
                   
                   {/* HR Module Quick Links */}
-                  {rbac && (rbac.canViewPayroll(userRole) || rbac.canViewAttendance(userRole)) && onNavigateToModule && (
+                  {(permissions.canViewPayroll || permissions.canViewAttendance) && onNavigateToModule && (
                     <>
-                      {rbac.canViewPayroll(userRole) && <button onClick={() => onNavigateToModule('payroll', emp)} style={btnPayroll}>💰 Pay</button>}
-                      {rbac.canViewAttendance(userRole) && <button onClick={() => onNavigateToModule('attendance', emp)} style={btnAttendance}>📍 Logs</button>}
+                      {permissions.canViewPayroll && <button onClick={() => onNavigateToModule('payroll', emp)} style={btnPayroll}>💰 Pay</button>}
+                      {permissions.canViewAttendance && <button onClick={() => onNavigateToModule('attendance', emp)} style={btnAttendance}>📍 Logs</button>}
                     </>
                   )}
                 </td>

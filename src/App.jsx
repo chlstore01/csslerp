@@ -1,66 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import useRBAC from "./hooks/useRBAC";
 // HR Modules
 import Attendance from './modules/HR/Attendance';
 import LeaveManagement from './modules/HR/LeaveManagement';
 import Payroll from './modules/HR/Payroll';
 // Employee Module
 import EmployeeDashboard from "./modules/Employees/EmployeeDashboard.jsx";
-
-// --- ROLE-BASED ACCESS CONTROL (RBAC) MODEL ---
-const RBAC = {
-  canViewStaffDirectory: (role) => {
-    return ["Admin", "HR Manager", "General Manager", "Finance Manager"].includes(role);
-  },
-  
-  canEditEmployee: (role) => {
-    return ["Admin", "HR Manager"].includes(role);
-  },
-  
-  canDeleteEmployee: (role) => {
-    return ["Admin"].includes(role);
-  },
-  
-  canViewAttendance: (role) => {
-    return ["Admin", "HR Manager", "Supervisor", "General Manager"].includes(role);
-  },
-  
-  canViewLeave: (role) => {
-    return ["Admin", "HR Manager", "General Manager"].includes(role);
-  },
-  
-  canApproveLeave: (role) => {
-    return ["Admin", "HR Manager"].includes(role);
-  },
-  
-  canViewPayroll: (role) => {
-    return ["Admin", "HR Manager", "Finance Manager", "General Manager"].includes(role);
-  },
-  
-  canManagePayroll: (role) => {
-    return ["Admin", "Finance Manager"].includes(role);
-  },
-  
-  // Employee visibility rules
-  canViewEmployee: (currentUserRole, targetEmployeeDept, currentUserDept) => {
-    if (currentUserRole === "Admin") return true;
-    if (["HR Manager", "General Manager", "Finance Manager"].includes(currentUserRole)) return true;
-    if (currentUserRole === "Supervisor") {
-      // Supervisors can only see their team
-      return currentUserDept === targetEmployeeDept;
-    }
-    // General Staff and others can only see themselves
-    return false;
-  },
-
-  canEditEmployeeField: (role, field) => {
-    if (role === "Admin") return true;
-    if (role === "HR Manager" && !["password", "approval_status"].includes(field)) return true;
-    return false;
-  }
-};
-
-export { RBAC }; 
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -141,6 +87,8 @@ export default function App() {
   }
 
   // --- MAIN APP SHELL ---
+  const permissions = useRBAC(currentUser);
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f7f6', fontFamily: 'sans-serif' }}>
       
@@ -157,25 +105,25 @@ export default function App() {
             🏠 Dashboard Home
           </div>
           
-          {RBAC.canViewStaffDirectory(currentUser.role) && (
+          {permissions.canViewStaffDirectory && (
             <div style={navItem(activeModule === 'employees')} onClick={() => setActiveModule('employees')}>
               👥 Staff Directory
             </div>
           )}
           
-          {RBAC.canViewAttendance(currentUser.role) && (
+          {permissions.canViewAttendance && (
             <div style={navItem(activeModule === 'attendance')} onClick={() => setActiveModule('attendance')}>
               📋 Attendance
             </div>
           )}
           
-          {RBAC.canViewLeave(currentUser.role) && (
+          {(permissions.canViewLeave || permissions.canApplyLeave) && (
             <div style={navItem(activeModule === 'leave')} onClick={() => setActiveModule('leave')}>
               🏖️ Leave Management
             </div>
           )}
           
-          {RBAC.canViewPayroll(currentUser.role) && (
+          {permissions.canViewPayroll && (
             <div style={navItem(activeModule === 'payroll')} onClick={() => setActiveModule('payroll')}>
               💰 Payroll
             </div>
@@ -199,10 +147,9 @@ export default function App() {
         )}
 
         {/* Employee Module */}
-        {activeModule === 'employees' && RBAC.canViewStaffDirectory(currentUser.role) ? (
+        {activeModule === 'employees' && permissions.canViewStaffDirectory ? (
           <EmployeeDashboard 
             currentUser={currentUser} 
-            rbac={RBAC}
             onNavigateToModule={(module, employee) => {
               setSelectedEmployee(employee);
               setActiveModule(module);
@@ -211,35 +158,35 @@ export default function App() {
         ) : activeModule === 'employees' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
             <h3>Access Denied</h3>
-            <p>You do not have permission to access the Staff Directory.</p>
+            <p>{permissions.getAccessDeniedMessage()}</p>
           </div>
         ) : null}
 
         {/* HR Modules */}
-        {activeModule === 'attendance' && RBAC.canViewAttendance(currentUser.role) ? (
-          <Attendance currentUser={currentUser} selectedEmployee={selectedEmployee} rbac={RBAC} />
+        {activeModule === 'attendance' && permissions.canViewAttendance ? (
+          <Attendance currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'attendance' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
             <h3>Access Denied</h3>
-            <p>You do not have permission to access Attendance records.</p>
+            <p>{permissions.getAccessDeniedMessage()}</p>
           </div>
         ) : null}
 
-        {activeModule === 'leave' && RBAC.canViewLeave(currentUser.role) ? (
-          <LeaveManagement currentUser={currentUser} selectedEmployee={selectedEmployee} rbac={RBAC} />
+        {activeModule === 'leave' && (permissions.canViewLeave || permissions.canApplyLeave) ? (
+          <LeaveManagement currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'leave' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
             <h3>Access Denied</h3>
-            <p>You do not have permission to access Leave Management.</p>
+            <p>{permissions.getAccessDeniedMessage()}</p>
           </div>
         ) : null}
 
-        {activeModule === 'payroll' && RBAC.canViewPayroll(currentUser.role) ? (
-          <Payroll currentUser={currentUser} selectedEmployee={selectedEmployee} rbac={RBAC} />
+        {activeModule === 'payroll' && permissions.canViewPayroll ? (
+          <Payroll currentUser={currentUser} selectedEmployee={selectedEmployee} />
         ) : activeModule === 'payroll' ? (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#dc3545' }}>
             <h3>Access Denied</h3>
-            <p>You do not have permission to access Payroll management.</p>
+            <p>{permissions.getAccessDeniedMessage()}</p>
           </div>
         ) : null}
 

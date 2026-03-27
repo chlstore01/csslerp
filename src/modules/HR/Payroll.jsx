@@ -172,7 +172,7 @@ export default function Payroll({ currentUser, selectedEmployee }) {
                 <td style={td}><b>{emp.name}</b><br/><small>{emp.employee_id}</small></td>
                 <td style={td}>{emp.grossPay} BDT</td>
                 <td style={td}>
-                  <button onClick={() => openDeductionModal(emp)} style={actBtn('#f39c12')}>Set Deductions</button>
+                  {permissions.canSetDeductions && <button onClick={() => openDeductionModal(emp)} style={actBtn('#f39c12')}>Set Deductions</button>}
                   <button onClick={() => generatePayslip(emp)} style={actBtn('#003366')}>Print Slip</button>
                 </td>
               </tr>

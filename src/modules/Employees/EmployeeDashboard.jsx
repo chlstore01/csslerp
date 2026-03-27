@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from "../../supabaseClient";
 
-export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
+export default function EmployeeDashboard({ currentUser, onNavigateToModule, rbac }) {
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -25,7 +25,8 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
 
   const userRole = currentUser?.role || "Guest";
   const isAdmin = userRole === "Admin";
-  const canManage = ["Admin", "HR Manager", "General Manager"].includes(userRole);
+  const canManage = rbac?.canEditEmployee(userRole) || false;
+  const canDelete = rbac?.canDeleteEmployee(userRole) || false;
   const canSeeSalary = ["Admin", "General Manager", "Finance Manager"].includes(userRole);
 
   useEffect(() => { 
@@ -161,15 +162,15 @@ export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
                 <td style={td}>{emp.status}</td>
                 <td style={td}>
                   <button onClick={() => setSelectedViewUser(emp)} style={actBtn('#17a2b8', '#fff')}>View</button>
-                  {isAdmin && <button onClick={() => { setIsEditing(true); setEditingDbId(emp.employee_id); setFormData({...emp}); setShowModal(true); }} style={actBtn('#ffc107', '#000')}>Edit</button>}
-                  {isAdmin && <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actBtn('#dc3545', '#fff')}>Delete</button>}
+                  {canManage && <button onClick={() => { setIsEditing(true); setEditingDbId(emp.employee_id); setFormData({...emp}); setShowModal(true); }} style={actBtn('#ffc107', '#000')}>Edit</button>}
+                  {canDelete && <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actBtn('#dc3545', '#fff')}>Delete</button>}
                   <button onClick={() => printID(emp)} style={actBtn('#28a745', '#fff')}>Print ID</button>
                   
                   {/* HR Module Quick Links */}
-                  {isAdmin && onNavigateToModule && (
+                  {rbac && (rbac.canViewPayroll(userRole) || rbac.canViewAttendance(userRole)) && onNavigateToModule && (
                     <>
-                      <button onClick={() => onNavigateToModule('payroll', emp)} style={btnPayroll}>💰 Pay</button>
-                      <button onClick={() => onNavigateToModule('attendance', emp)} style={btnAttendance}>📍 Logs</button>
+                      {rbac.canViewPayroll(userRole) && <button onClick={() => onNavigateToModule('payroll', emp)} style={btnPayroll}>💰 Pay</button>}
+                      {rbac.canViewAttendance(userRole) && <button onClick={() => onNavigateToModule('attendance', emp)} style={btnAttendance}>📍 Logs</button>}
                     </>
                   )}
                 </td>

@@ -64,11 +64,12 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
         });
       }
 
-      // Enrich leaves with employee data
+      // Enrich leaves with employee data and recommended_by name
       const enrichedLeaves = filteredLeaves.map(leave => ({
         ...leave,
         employee_name: empMap[leave.employee_id]?.name || leave.employee_id,
-        designation: empMap[leave.employee_id]?.designation || 'N/A'
+        designation: empMap[leave.employee_id]?.designation || 'N/A',
+        recommended_by_name: leave.recommended_by ? empMap[leave.recommended_by]?.name || 'Unknown' : null
       }));
 
       setLeaves(enrichedLeaves);
@@ -135,18 +136,31 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
   };
 
   const handleStatusUpdate = async (id, newStatus) => {
-    const { error } = await supabase
-      .from('leave_requests')
-      .update({ 
-        status: newStatus,
-        ...(isAdmin ? { approved_by: currentUser.employee_id } : { recommended_by: currentUser.employee_id })
-      })
-      .eq('id', id);
+    try {
+      const updateData = { status: newStatus };
+      
+      if (isAdmin) {
+        updateData.approved_by = currentUser.employee_id;
+      } else {
+        updateData.recommended_by = currentUser.employee_id;
+      }
+      
+      const { error } = await supabase
+        .from('leave_requests')
+        .update(updateData)
+        .eq('id', id);
 
-    if (!error) {
-      const action = isAdmin ? `Leave ${newStatus}` : "Recommendation submitted";
-      alert(action);
-      fetchLeaves();
+      if (error) {
+        console.error("Update error:", error);
+        alert("Error updating leave status: " + error.message);
+      } else {
+        const action = isAdmin ? `Leave ${newStatus}` : "Recommendation submitted";
+        alert(action);
+        await fetchLeaves();
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      alert("Error: " + err.message);
     }
   };
 
@@ -186,6 +200,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                   <th style={th}>Type</th>
                   <th style={th}>Duration</th>
                   <th style={th}>Status</th>
+                  <th style={th}>Recommended By</th>
                   {!isAdmin && <th style={th}>Supervisor Action</th>}
                   {isAdmin && <th style={th}>Admin Action</th>}
                 </tr>
@@ -201,6 +216,13 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                     <td style={td}>{lv.start_date} to {lv.end_date}</td>
                     <td style={td}>
                       <span style={statusBadge(lv.status)}>{lv.status}</span>
+                    </td>
+                    <td style={td}>
+                      {lv.recommended_by_name ? (
+                        <span style={{ fontSize: '12px', color: '#0066cc' }}>✓ {lv.recommended_by_name}</span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#999' }}>—</span>
+                      )}
                     </td>
                     {/* Supervisor Recommendation Stage */}
                     {!isAdmin && (

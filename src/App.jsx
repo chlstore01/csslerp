@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-
-// FIXED PATH & EXTENSION: Points to the 'modules' folder and the '.jsx' file
+// HR Modules
+import Attendance from './modules/HR/Attendance';
+import LeaveManagement from './modules/HR/LeaveManagement';
+import Payroll from './modules/HR/Payroll';
+// Employee Module
 import EmployeeDashboard from "./modules/Employees/EmployeeDashboard.jsx"; 
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [currentUser, setCurrentUser] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [loginForm, setLoginForm] = useState({ id: '', pass: '' });
   const [loginError, setLoginError] = useState('');
 
@@ -42,31 +46,8 @@ export default function App() {
       }
 
       if (data.password === loginForm.pass) {
-        setCurrentUser(data);
-      } else {
-        setLoginError('Incorrect Password');
-      }
-    } catch (err) {
-      setLoginError('Connection Error');
-    }
-  ;
-    try {
-      // Fetch user from Supabase 'employees' table
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('employee_id', loginForm.id)
-        .single();
-
-      if (error || !data) {
-        setLoginError('Invalid Employee ID');
-        return;
-      }
-
-      // Strict Password Check
-      if (data.password === loginForm.pass) {
         console.log("Login Successful. Role:", data.role);
-        setCurrentUser(data); // This object flows into the EmployeeDashboard below
+        setCurrentUser(data);
       } else {
         setLoginError('Incorrect Password');
       }
@@ -123,6 +104,15 @@ export default function App() {
           <div style={navItem(activeModule === 'employees')} onClick={() => setActiveModule('employees')}>
             👥 Staff Directory
           </div>
+          <div style={navItem(activeModule === 'attendance')} onClick={() => setActiveModule('attendance')}>
+            📋 Attendance
+          </div>
+          <div style={navItem(activeModule === 'leave')} onClick={() => setActiveModule('leave')}>
+            🏖️ Leave Management
+          </div>
+          <div style={navItem(activeModule === 'payroll')} onClick={() => setActiveModule('payroll')}>
+            💰 Payroll
+          </div>
         </nav>
 
         <button style={logoutBtn} onClick={() => setCurrentUser(null)}>Logout System</button>
@@ -133,18 +123,36 @@ export default function App() {
         
         {/* Welcome Screen */}
         {activeModule === 'dashboard' && (
-  <div style={welcomeCard}>
-    {/* Font size adjusted to 1.5rem (approx 24px) for a cleaner look */}
-    <h1 style={{ color: '#003366', fontSize: '1.5rem', marginBottom: '10px' }}>
-      Welcome back, {currentUser.name}
-    </h1>
-    <p style={{ fontSize: '0.9rem' }}>Access Level: <strong>{currentUser.role}</strong></p>
-  </div>
-)}
+          <div style={welcomeCard}>
+            <h1 style={{ color: '#003366', fontSize: '1.5rem', marginBottom: '10px' }}>
+              Welcome back, {currentUser.name}
+            </h1>
+            <p style={{ fontSize: '0.9rem' }}>Access Level: <strong>{currentUser.role}</strong></p>
+          </div>
+        )}
 
-        {/* Employee Module: The Prop 'currentUser' is passed here for RBAC */}
+        {/* Employee Module */}
         {activeModule === 'employees' && (
-          <EmployeeDashboard currentUser={currentUser} />
+          <EmployeeDashboard 
+            currentUser={currentUser} 
+            onNavigateToModule={(module, employee) => {
+              setSelectedEmployee(employee);
+              setActiveModule(module);
+            }}
+          />
+        )}
+
+        {/* HR Modules */}
+        {activeModule === 'attendance' && (
+          <Attendance currentUser={currentUser} selectedEmployee={selectedEmployee} />
+        )}
+
+        {activeModule === 'leave' && (
+          <LeaveManagement currentUser={currentUser} selectedEmployee={selectedEmployee} />
+        )}
+
+        {activeModule === 'payroll' && (
+          <Payroll currentUser={currentUser} selectedEmployee={selectedEmployee} />
         )}
 
       </div>

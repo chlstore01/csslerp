@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from "../../supabaseClient";
 
-export default function EmployeeDashboard({ currentUser }) {
+export default function EmployeeDashboard({ currentUser, onNavigateToModule }) {
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -20,7 +20,7 @@ export default function EmployeeDashboard({ currentUser }) {
     approval_status: 'Approved' 
   });
 
-  const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff"];
+  const roles = ["Admin", "General Manager", "Finance Manager", "Supply Chain Manager", "HR Manager", "Supervisor", "Engineer", "General Staff", "Facilities"];
   const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
   const userRole = currentUser?.role || "Guest";
@@ -164,6 +164,14 @@ export default function EmployeeDashboard({ currentUser }) {
                   {isAdmin && <button onClick={() => { setIsEditing(true); setEditingDbId(emp.employee_id); setFormData({...emp}); setShowModal(true); }} style={actBtn('#ffc107', '#000')}>Edit</button>}
                   {isAdmin && <button onClick={() => handleDelete(emp.employee_id, emp.name)} style={actBtn('#dc3545', '#fff')}>Delete</button>}
                   <button onClick={() => printID(emp)} style={actBtn('#28a745', '#fff')}>Print ID</button>
+                  
+                  {/* HR Module Quick Links */}
+                  {isAdmin && onNavigateToModule && (
+                    <>
+                      <button onClick={() => onNavigateToModule('payroll', emp)} style={btnPayroll}>💰 Pay</button>
+                      <button onClick={() => onNavigateToModule('attendance', emp)} style={btnAttendance}>📍 Logs</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -269,5 +277,7 @@ const addBtn = { background: '#003366', color: '#fff', border: 'none', padding: 
 const saveBtn = { flex: 1, background: '#28a745', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const cancelBtn = { flex: 1, background: '#6c757d', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const actBtn = (bg, c) => ({ background: bg, color: c, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '12px' });
+const btnPayroll = { background: '#f39c12', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '11px', fontWeight: 'bold' };
+const btnAttendance = { background: '#3498db', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '11px', fontWeight: 'bold' };
 const overlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
 const modalBox = { background: '#fff', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' };

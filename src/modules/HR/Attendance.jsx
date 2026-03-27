@@ -1,135 +1,148 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-export default function Attendance({ currentUser }) {
+export default function Attendance({ currentUser, selectedEmployee }) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [todayLog, setTodayLog] = useState(null);
-  const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [distance, setDistance] = useState(null);
+  const [isWithinRange, setIsWithinRange] = useState(false);
+
+  const ALLOWED_RADIUS_METERS = 200; // Adjust based on site size
+  const targetUser = selectedEmployee || currentUser;
 
   useEffect(() => {
     fetchTodayStatus();
-    if (currentUser.role === 'Admin' || currentUser.role === 'HR Manager') {
-      fetchAllLogs();
-    }
-  }, [currentUser]);
+  }, [currentUser, selectedEmployee]);
 
-  // Check if the user has already checked in today
+  // Haversine Formula to calculate distance between two points in meters
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; 
+  };
+
   async function fetchTodayStatus() {
-    const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('employee_id', currentUser.employee_id)
-      .gte('check_in', today)
-      .single();
-
-    if (data) setTodayLog(data);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('employee_id', targetUser.employee_id)
+        .gte('check_in', today)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) setTodayLog(data);
+    } catch (err) {
+      console.error("Attendance fetch error:", err.message);
+      setError(err.message);
+    }
   }
 
-  async function fetchAllLogs() {
-    const { data } = await supabase
-      .from('attendance')
-      .select(`*, employees(name, designation)`)
-      .order('check_in', { ascending: false })
-      .limit(50);
-    setAttendanceHistory(data || []);
-  }
-
-  const handleCheckIn = async () => {
+  const handleVerifyLocation = () => {
     setLoading(true);
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords;
-      const latLong = `${latitude}, ${longitude}`;
+    if (!currentUser.target_location) {
+      alert("No target location assigned to your profile. Please contact HR.");
+      setLoading(false);
+      return;
+    }
 
-      const { error } = await supabase.from('attendance').insert([{
-        employee_id: currentUser.employee_id,
-        site_location: currentUser.site_location || 'Main Office',
-        lat_long: latLong,
-        status: 'Present'
-      }]);
+    navigator.geolocation.getCurrentPosition((position) => {
+      const userLat = position.coords.latitude;
+      const userLon = position.coords.longitude;
+      
+      const [targetLat, targetLon] = currentUser.target_location.split(',').map(Number);
+      
+      const dist = calculateDistance(userLat, userLon, targetLat, targetLon);
+      setDistance(Math.round(dist));
 
-      if (error) alert(error.message);
-      else {
-        alert("Checked In Successfully!");
-        fetchTodayStatus();
+      if (dist <= ALLOWED_RADIUS_METERS) {
+        setIsWithinRange(true);
+      } else {
+        setIsWithinRange(false);
+        alert(`Access Denied: You are ${Math.round(dist)}m away from the site.`);
       }
       setLoading(false);
     }, (err) => {
-      alert("Please enable Location Services to Check-In.");
+      alert("Location access denied. Check-in is impossible without GPS.");
       setLoading(false);
-    });
+    }, { enableHighAccuracy: true });
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckIn = async () => {
+    if (!isWithinRange) return;
     setLoading(true);
-    const { error } = await supabase
-      .from('attendance')
-      .update({ check_out: new Date().toISOString() })
-      .eq('id', todayLog.id);
+    
+    const { error } = await supabase.from('attendance').insert([{
+      employee_id: targetUser.employee_id,
+      site_location: targetUser.site_location,
+      lat_long: `${distance}m from site`,
+      status: 'Present'
+    }]);
 
-    if (error) alert(error.message);
-    else {
-      alert("Checked Out Successfully!");
+    if (!error) {
+      alert("Check-in Verified!");
       fetchTodayStatus();
     }
     setLoading(false);
   };
 
   return (
-    <div style={{ padding: '20px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
-      <h2 style={{ color: '#003366' }}>Daily Attendance</h2>
-      <hr />
-
-      {/* ACTION CARD */}
-      <div style={{ background: '#f8f9fa', padding: '30px', textAlign: 'center', borderRadius: '10px', marginBottom: '20px' }}>
-        <h3>Welcome, {currentUser.name}</h3>
-        <p>Current Site: <b>{currentUser.site_location || 'Not Assigned'}</b></p>
+    <div style={{ padding: '20px', maxWidth: '500px', margin: 'auto' }}>
+      {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
+      
+      <div style={card}>
+        <h2 style={{ color: '#003366', textAlign: 'center' }}>Site Attendance</h2>
+        {selectedEmployee && <p style={{ textAlign: 'center', fontSize: '12px', color: '#666', fontWeight: 'bold', background: '#f0f8ff', padding: '8px', borderRadius: '4px', marginBottom: '10px' }}>Viewing: {selectedEmployee.name}</p>}
+        <p style={{ textAlign: 'center', fontSize: '14px', color: '#666' }}>
+          Site: <b>{targetUser.site_location || 'Not Assigned'}</b>
+        </p>
         
-        {!todayLog ? (
-          <button onClick={handleCheckIn} disabled={loading} style={btnIn}>
-            {loading ? 'Processing...' : 'START WORK (CHECK-IN)'}
-          </button>
-        ) : !todayLog.check_out ? (
-          <button onClick={handleCheckOut} disabled={loading} style={btnOut}>
-            {loading ? 'Processing...' : 'FINISH WORK (CHECK-OUT)'}
-          </button>
-        ) : (
-          <div style={{ color: 'green', fontWeight: 'bold' }}>✅ Work Completed for Today</div>
+        <hr />
+
+        {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading...</p>}
+
+        {!loading && !todayLog ? (
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            {!isWithinRange ? (
+              <button onClick={handleVerifyLocation} disabled={loading} style={verifyBtn}>
+                {loading ? 'Locating...' : 'Verify My Location'}
+              </button>
+            ) : (
+              <div>
+                <p style={{ color: 'green', fontWeight: 'bold' }}>✅ Location Verified ({distance}m away)</p>
+                <button onClick={handleCheckIn} style={checkInBtn}>CONFIRM CHECK-IN</button>
+              </div>
+            )}
+          </div>
+        ) : !loading && todayLog ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <div style={{ fontSize: '50px' }}>✅</div>
+            <h3>Checked In</h3>
+            <p>Time: {new Date(todayLog.check_in).toLocaleTimeString()}</p>
+          </div>
+        ) : null}
+
+        {distance !== null && !isWithinRange && (
+          <p style={{ color: 'red', textAlign: 'center', marginTop: '10px', fontSize: '12px' }}>
+            Error: You are outside the {ALLOWED_RADIUS_METERS}m boundary.
+          </p>
         )}
       </div>
-
-      {/* ADMIN VIEW: RECENT LOGS */}
-      {(currentUser.role === 'Admin' || currentUser.role === 'HR Manager') && (
-        <div>
-          <h4>Recent Activity (All Staff)</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#003366', color: '#fff' }}>
-                <th style={th}>Staff</th>
-                <th style={th}>Check In</th>
-                <th style={th}>Check Out</th>
-                <th style={th}>Location</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceHistory.map(log => (
-                <tr key={log.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={td}>{log.employees?.name} <br/> <small>{log.employees?.designation}</small></td>
-                  <td style={td}>{new Date(log.check_in).toLocaleTimeString()}</td>
-                  <td style={td}>{log.check_out ? new Date(log.check_out).toLocaleTimeString() : 'On Duty'}</td>
-                  <td style={td}><a href={`https://www.google.com/maps?q=${log.lat_long}`} target="_blank" rel="noreferrer">View Map</a></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
 
 // Styles
-const btnIn = { background: '#28a745', color: '#fff', padding: '15px 30px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' };
-const btnOut = { background: '#dc3545', color: '#fff', padding: '15px 30px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' };
-const th = { padding: '10px', textAlign: 'left', fontSize: '12px' };
-const td = { padding: '10px', fontSize: '13px' };
+const card = { background: '#fff', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', border: '1px solid #eee' };
+const verifyBtn = { background: '#003366', color: '#fff', width: '100%', padding: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
+const checkInBtn = { background: '#28a745', color: '#fff', width: '100%', padding: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' };

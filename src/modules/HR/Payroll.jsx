@@ -4,10 +4,11 @@ import { supabase } from '../../supabaseClient';
 export default function Payroll({ currentUser }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showDeductModal, setShowDeductModal] = useState(false);
-  const [activeEmp, setActiveEmp] = useState(null);
+  const [activeEmp, setActiveEmp] = useState(selectedEmployee || null);
 
   // Manual Deduction State
   const [deductions, setDeductions] = useState({
@@ -20,6 +21,7 @@ export default function Payroll({ currentUser }) {
 
   async function fetchPayrollData() {
     setLoading(true);
+    setError(null);
     try {
       const { data: staff, error: staffErr } = await supabase.from('employees').select('*');
       if (staffErr) throw staffErr;
@@ -28,24 +30,32 @@ export default function Payroll({ currentUser }) {
       const endDate = new Date(selectedYear, selectedMonth, 0, 23, 59, 59).toISOString();
 
       const staffWithAttendance = await Promise.all(staff.map(async (emp) => {
-        const { count } = await supabase
-          .from('attendance')
-          .select('*', { count: 'exact', head: true })
-          .eq('employee_id', emp.employee_id)
-          .gte('check_in', startDate)
-          .lte('check_in', endDate);
-        
-        // Fetch existing manual deductions if any from a 'payroll' records table (optional logic)
-        // For this UI, we calculate live:
-        const daysPresent = count || 0;
-        const dailyWage = (emp.basic_salary || 0) / 30;
-        const grossPay = Math.round(daysPresent * dailyWage);
+        try {
+          const { count } = await supabase
+            .from('attendance')
+            .select('*', { count: 'exact', head: true })
+            .eq('employee_id', emp.employee_id)
+            .gte('check_in', startDate)
+            .lte('check_in', endDate);
+          
+          // Fetch existing manual deductions if any from a 'payroll' records table (optional logic)
+          // For this UI, we calculate live:
+          const daysPresent = count || 0;
+          const dailyWage = (emp.basic_salary || 0) / 30;
+          const grossPay = Math.round(daysPresent * dailyWage);
 
-        return { ...emp, daysPresent, grossPay };
+          return { ...emp, daysPresent, grossPay };
+        } catch (err) {
+          console.error(`Error calculating for ${emp.employee_id}:`, err.message);
+          return { ...emp, daysPresent: 0, grossPay: 0 };
+        }
       }));
 
       setEmployees(staffWithAttendance);
-    } catch (err) { console.error(err.message); }
+    } catch (err) { 
+      console.error("Payroll fetch error:", err.message);
+      setError(err.message);
+    }
     setLoading(false);
   }
 
@@ -106,39 +116,49 @@ export default function Payroll({ currentUser }) {
 
   return (
     <div style={{ padding: '20px', background: '#fff' }}>
+      {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
+      
       <h2 style={{ color: '#003366' }}>Payroll & Manual Deductions</h2>
       
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <select style={inp} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+        <select style={inp} value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>
           {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', {month:'long'})}</option>)}
         </select>
-        <select style={inp} value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+        <select style={inp} value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
             <option value="2026">2026</option>
             <option value="2027">2027</option>
         </select>
       </div>
 
-      <table style={tbl}>
-        <thead>
-          <tr style={{ background: '#f4f4f4', borderBottom: '2px solid #003366' }}>
-            <th style={th}>Staff</th>
-            <th style={th}>Attendance Pay</th>
-            <th style={th}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map(emp => (
-            <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={td}><b>{emp.name}</b><br/><small>{emp.employee_id}</small></td>
-              <td style={td}>{emp.grossPay} BDT</td>
-              <td style={td}>
-                <button onClick={() => openDeductionModal(emp)} style={actBtn('#f39c12')}>Set Deductions</button>
-                <button onClick={() => generatePayslip(emp)} style={actBtn('#003366')}>Print Slip</button>
-              </td>
+      {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading payroll data...</p>}
+
+      {!loading && employees.length === 0 && (
+        <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No employees found.</p>
+      )}
+
+      {!loading && employees.length > 0 && (
+        <table style={tbl}>
+          <thead>
+            <tr style={{ background: '#f4f4f4', borderBottom: '2px solid #003366' }}>
+              <th style={th}>Staff</th>
+              <th style={th}>Attendance Pay</th>
+              <th style={th}>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {employees.map(emp => (
+              <tr key={emp.employee_id} style={{ borderBottom: '1px solid #eee', background: selectedEmployee && emp.employee_id === selectedEmployee.employee_id ? '#f0f8ff' : 'transparent' }}>
+                <td style={td}><b>{emp.name}</b><br/><small>{emp.employee_id}</small></td>
+                <td style={td}>{emp.grossPay} BDT</td>
+                <td style={td}>
+                  <button onClick={() => openDeductionModal(emp)} style={actBtn('#f39c12')}>Set Deductions</button>
+                  <button onClick={() => generatePayslip(emp)} style={actBtn('#003366')}>Print Slip</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {/* DEDUCTION MODAL */}
       {showDeductModal && (

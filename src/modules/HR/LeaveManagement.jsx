@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-export default function LeaveManagement({ currentUser }) {
+export default function LeaveManagement({ currentUser, selectedEmployee }) {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [formData, setFormData] = useState({
     leave_type: 'Casual Leave',
@@ -16,19 +17,29 @@ export default function LeaveManagement({ currentUser }) {
 
   useEffect(() => {
     fetchLeaves();
-  }, []);
+  }, [selectedEmployee]);
 
   async function fetchLeaves() {
     setLoading(true);
-    let query = supabase.from('leave_requests').select(`*, employees(name, designation)`);
-    
-    // If not Admin, only see own leaves
-    if (!isAdmin) {
-      query = query.eq('employee_id', currentUser.employee_id);
-    }
+    setError(null);
+    try {
+      let query = supabase.from('leave_requests').select(`*, employees(name, designation)`);
+      
+      // Filter by selected employee if viewing specific employee
+      if (selectedEmployee) {
+        query = query.eq('employee_id', selectedEmployee.employee_id);
+      } else if (!isAdmin) {
+        // If not Admin and no selected employee, only see own leaves
+        query = query.eq('employee_id', currentUser.employee_id);
+      }
 
-    const { data } = await query.order('applied_at', { ascending: false });
-    setLeaves(data || []);
+      const { data, error: err } = await query.order('applied_at', { ascending: false });
+      if (err) throw err;
+      setLeaves(data || []);
+    } catch (err) {
+      console.error("Leave fetch error:", err.message);
+      setError(err.message);
+    }
     setLoading(false);
   }
 
@@ -63,47 +74,60 @@ export default function LeaveManagement({ currentUser }) {
 
   return (
     <div style={{ padding: '20px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h2 style={{ color: '#003366', margin: 0 }}>Leave Management</h2>
-        <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>
+      {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>Error: {error}</div>}
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ color: '#003366', margin: 0 }}>Leave Management</h2>
+          {selectedEmployee && <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0', background: '#f0f8ff', padding: '5px 8px', borderRadius: '4px', display: 'inline-block' }}>Viewing: {selectedEmployee.name}</p>}
+        </div>
+        {!selectedEmployee && <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>}
       </div>
 
-      <table style={tbl}>
-        <thead>
-          <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #003366' }}>
-            <th style={th}>Employee</th>
-            <th style={th}>Type</th>
-            <th style={th}>Duration</th>
-            <th style={th}>Status</th>
-            {isAdmin && <th style={th}>Actions</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {leaves.map(lv => (
-            <tr key={lv.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={td}>
-                <b>{lv.employees?.name}</b><br/>
-                <small>{lv.employee_id}</small>
-              </td>
-              <td style={td}>{lv.leave_type}</td>
-              <td style={td}>{lv.start_date} to {lv.end_date}</td>
-              <td style={td}>
-                <span style={statusBadge(lv.status)}>{lv.status}</span>
-              </td>
-              {isAdmin && (
-                <td style={td}>
-                  {lv.status === 'Pending' && (
-                    <>
-                      <button onClick={() => handleStatusUpdate(lv.id, 'Approved')} style={actBtn('#28a745')}>Approve</button>
-                      <button onClick={() => handleStatusUpdate(lv.id, 'Rejected')} style={actBtn('#dc3545')}>Reject</button>
-                    </>
-                  )}
-                </td>
-              )}
+      {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading...</p>}
+
+      {!loading && leaves.length === 0 && (
+        <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No leave requests found.</p>
+      )}
+
+      {!loading && leaves.length > 0 && (
+        <table style={tbl}>
+          <thead>
+            <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #003366' }}>
+              <th style={th}>Employee</th>
+              <th style={th}>Type</th>
+              <th style={th}>Duration</th>
+              <th style={th}>Status</th>
+              {isAdmin && <th style={th}>Actions</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {leaves.map(lv => (
+              <tr key={lv.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={td}>
+                  <b>{lv.employees?.name}</b><br/>
+                  <small>{lv.employee_id}</small>
+                </td>
+                <td style={td}>{lv.leave_type}</td>
+                <td style={td}>{lv.start_date} to {lv.end_date}</td>
+                <td style={td}>
+                  <span style={statusBadge(lv.status)}>{lv.status}</span>
+                </td>
+                {isAdmin && (
+                  <td style={td}>
+                    {lv.status === 'Pending' && (
+                      <>
+                        <button onClick={() => handleStatusUpdate(lv.id, 'Approved')} style={actBtn('#28a745')}>Approve</button>
+                        <button onClick={() => handleStatusUpdate(lv.id, 'Rejected')} style={actBtn('#dc3545')}>Reject</button>
+                      </>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {/* APPLICATION MODAL */}
       {showApplyModal && (

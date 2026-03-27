@@ -21,9 +21,24 @@ export const RBAC = {
     return ["Admin", "General Manager", "Finance Manager"].includes(role);
   },
 
+  // Can view own salary (all employees can)
+  canViewOwnSalary: (role) => {
+    return true; // Everyone can view their own salary
+  },
+
+  // Can view own profile (all employees can)
+  canViewOwnProfile: (role) => {
+    return true; // Everyone can view their own profile
+  },
+
   // Attendance Permissions
   canViewAttendance: (role) => {
     return ["Admin", "HR Manager", "Supervisor", "General Manager"].includes(role);
+  },
+
+  // Can view own attendance (all employees can)
+  canViewOwnAttendance: (role) => {
+    return true; // Everyone can view their own attendance
   },
 
   canMarkAttendance: (role) => {
@@ -33,6 +48,11 @@ export const RBAC = {
   // Leave Management Permissions
   canViewLeave: (role) => {
     return ["Admin", "HR Manager", "General Manager"].includes(role);
+  },
+
+  // Can view own leaves (all employees can)
+  canViewOwnLeave: (role) => {
+    return true; // Everyone can view their own leaves
   },
 
   canApplyLeave: (role) => {
@@ -46,6 +66,11 @@ export const RBAC = {
   // Payroll Permissions
   canViewPayroll: (role) => {
     return ["Admin", "HR Manager", "Finance Manager", "General Manager"].includes(role);
+  },
+
+  // Can view own payslip (all employees can)
+  canViewOwnPayslip: (role) => {
+    return true; // Everyone can view their own payslip
   },
 
   canManagePayroll: (role) => {

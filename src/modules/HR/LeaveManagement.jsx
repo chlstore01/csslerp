@@ -27,19 +27,22 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
     try {
       let query = supabase.from('leave_requests').select('*');
       
-      // Filter by selected employee if viewing specific employee
+      // Determine which employee's leaves to fetch
+      let targetEmployeeId = currentUser.employee_id;
+      
       if (selectedEmployee) {
-        // Check if user has permission to view this employee's leaves
+        // Viewing specific employee
+        targetEmployeeId = selectedEmployee.employee_id;
+        // Only allow if user has broad permission OR viewing their own leaves
         if (!permissions.canViewLeave && selectedEmployee.employee_id !== currentUser.employee_id) {
           setLeaves([]);
           setLoading(false);
           return;
         }
-        query = query.eq('employee_id', selectedEmployee.employee_id);
-      } else if (!permissions.canViewLeave) {
-        // If not allowed to view all leaves, only see own leaves
-        query = query.eq('employee_id', currentUser.employee_id);
       }
+      
+      // Fetch leaves for target employee
+      query = query.eq('employee_id', targetEmployeeId);
 
       const { data, error: err } = await query.order('applied_at', { ascending: false });
       if (err) throw err;
@@ -68,17 +71,33 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
 
   const handleApply = async (e) => {
     e.preventDefault();
+    if (!formData.start_date || !formData.end_date || !formData.reason) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    
     setLoading(true);
     const { error } = await supabase.from('leave_requests').insert([{
-      ...formData,
+      leave_type: formData.leave_type,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      reason: formData.reason,
       employee_id: currentUser.employee_id,
       status: 'Pending'
     }]);
 
     if (!error) {
-      alert("Leave application submitted.");
+      alert("Leave application submitted successfully!");
       setShowApplyModal(false);
+      setFormData({
+        leave_type: 'Casual Leave',
+        start_date: '',
+        end_date: '',
+        reason: ''
+      });
       fetchLeaves();
+    } else {
+      alert("Error submitting leave application: " + error.message);
     }
     setLoading(false);
   };
@@ -114,7 +133,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
               <h2 style={{ color: '#003366', margin: 0 }}>Leave Management</h2>
               {selectedEmployee && <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0 0', background: '#f0f8ff', padding: '5px 8px', borderRadius: '4px', display: 'inline-block' }}>Viewing: {selectedEmployee.name}</p>}
             </div>
-            {!selectedEmployee && <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>}
+            {!selectedEmployee && permissions.canApplyLeave && <button onClick={() => setShowApplyModal(true)} style={addBtn}>Apply for Leave</button>}
           </div>
 
           {loading && <p style={{ textAlign: 'center', color: '#003366' }}>Loading...</p>}
@@ -171,11 +190,11 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
             <h3>Leave Application</h3>
             <form onSubmit={handleApply}>
               <label style={lbl}>Leave Type</label>
-              <select style={inp} onChange={e => setFormData({...formData, leave_type: e.target.value})}>
-                <option>Casual Leave</option>
-                <option>Sick Leave</option>
-                <option>Earned Leave</option>
-                <option>Maternity/Paternity Leave</option>
+              <select style={inp} value={formData.leave_type} onChange={e => setFormData({...formData, leave_type: e.target.value})}>
+                <option value="Casual Leave">Casual Leave</option>
+                <option value="Sick Leave">Sick Leave</option>
+                <option value="Earned Leave">Earned Leave</option>
+                <option value="Maternity/Paternity Leave">Maternity/Paternity Leave</option>
               </select>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>

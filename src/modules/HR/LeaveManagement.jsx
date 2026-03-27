@@ -15,7 +15,8 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
   });
 
   const permissions = useRBAC(currentUser);
-  const isAdmin = ["Admin", "HR Manager"].includes(currentUser.role);
+  const isAdmin = ["Admin"].includes(currentUser.role);
+  const isSupervisor = ["Supervisor"].includes(currentUser.role);
 
   useEffect(() => {
     fetchLeaves();
@@ -117,11 +118,15 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
   const handleStatusUpdate = async (id, newStatus) => {
     const { error } = await supabase
       .from('leave_requests')
-      .update({ status: newStatus, approved_by: currentUser.employee_id })
+      .update({ 
+        status: newStatus,
+        ...(isSupervisor ? { supervisor_recommendation: newStatus, recommended_by: currentUser.employee_id } : { approved_by: currentUser.employee_id })
+      })
       .eq('id', id);
 
     if (!error) {
-      alert(`Application ${newStatus}`);
+      const action = isSupervisor ? "Recommendation submitted" : `Leave ${newStatus}`;
+      alert(action);
       fetchLeaves();
     }
   };
@@ -162,7 +167,8 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                   <th style={th}>Type</th>
                   <th style={th}>Duration</th>
                   <th style={th}>Status</th>
-                  {isAdmin && <th style={th}>Actions</th>}
+                  {isSupervisor && <th style={th}>Supervisor Action</th>}
+                  {isAdmin && <th style={th}>Admin Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -177,9 +183,21 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
                     <td style={td}>
                       <span style={statusBadge(lv.status)}>{lv.status}</span>
                     </td>
-                    {isAdmin && (
+                    {/* Supervisor Recommendation Stage */}
+                    {isSupervisor && (
                       <td style={td}>
                         {lv.status === 'Pending' && (
+                          <>
+                            <button onClick={() => handleStatusUpdate(lv.id, 'Recommended')} style={actBtn('#007bff')}>Recommend</button>
+                            <button onClick={() => handleStatusUpdate(lv.id, 'Not Recommended')} style={actBtn('#dc3545')}>Reject</button>
+                          </>
+                        )}
+                      </td>
+                    )}
+                    {/* Admin Approval Stage */}
+                    {isAdmin && (
+                      <td style={td}>
+                        {(lv.status === 'Pending' || lv.status === 'Recommended') && (
                           <>
                             <button onClick={() => handleStatusUpdate(lv.id, 'Approved')} style={actBtn('#28a745')}>Approve</button>
                             <button onClick={() => handleStatusUpdate(lv.id, 'Rejected')} style={actBtn('#dc3545')}>Reject</button>

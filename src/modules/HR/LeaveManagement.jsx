@@ -140,7 +140,7 @@ export default function LeaveManagement({ currentUser, selectedEmployee }) {
       const updateData = { status: newStatus };
       
       if (isAdmin) {
-        updateData.approved_by = currentUser.employee_id;
+        // Admin can approve without being in employees table - skip setting approved_by to avoid FK constraint
       } else {
         updateData.recommended_by = currentUser.employee_id;
       }
